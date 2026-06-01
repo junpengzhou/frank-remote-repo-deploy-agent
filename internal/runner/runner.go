@@ -46,6 +46,7 @@ func (r ExecRunner) Run(ctx context.Context, spec Command) error {
 	}
 	_, _ = fmt.Fprintf(out, "[cmd] %s\n", spec.String())
 	if r.DryRun {
+		// dry-run 用于在部署机上先确认 git/mvn/rsync/ssh 命令是否符合预期。
 		return nil
 	}
 	cmd := exec.CommandContext(ctx, spec.Name, spec.Args...)
@@ -67,6 +68,7 @@ func (r ExecRunner) Output(ctx context.Context, spec Command) (string, error) {
 		return "", errors.New("command name is required")
 	}
 	if r.DryRun {
+		// dry-run 下没有真实 HEAD，调用方会按空输出继续走命令预览。
 		return "", nil
 	}
 	cmd := exec.CommandContext(ctx, spec.Name, spec.Args...)

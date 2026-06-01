@@ -27,6 +27,7 @@ func FindArtifact(moduleDir, packaging string) (Artifact, error) {
 	if len(matches) == 0 {
 		return Artifact{}, fmt.Errorf("no %s artifact found under %s", packaging, filepath.Join(moduleDir, "target"))
 	}
+	// target 目录可能残留多个历史产物，优先使用最新修改时间的那个。
 	sort.Slice(matches, func(i, j int) bool {
 		left, _ := os.Stat(matches[i])
 		right, _ := os.Stat(matches[j])
@@ -40,6 +41,7 @@ func FindArtifact(moduleDir, packaging string) (Artifact, error) {
 
 func PrepareStaging(artifact Artifact, stagingRoot, module string) (string, error) {
 	target := filepath.Join(stagingRoot, module)
+	// staging 每次重建，配合 rsync --delete 保证远端也能删除已经不存在的 class/lib。
 	if err := os.RemoveAll(target); err != nil {
 		return "", err
 	}
@@ -80,6 +82,7 @@ func unzip(src, dest string) error {
 			return err
 		}
 		if !strings.HasPrefix(cleanTarget, cleanDest+string(os.PathSeparator)) && cleanTarget != cleanDest {
+			// 防止恶意 zip 里出现 ../ 路径写出 staging 目录。
 			return fmt.Errorf("illegal path in archive: %s", file.Name)
 		}
 		if file.FileInfo().IsDir() {

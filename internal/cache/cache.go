@@ -15,8 +15,9 @@ type Entry struct {
 }
 
 type Store struct {
-	path    string
-	mu      sync.Mutex
+	path string
+	mu   sync.Mutex
+	// key 形如 module@branch，value 记录该分支上一次成功 install 的 HEAD。
 	Entries map[string]Entry `json:"entries"`
 }
 
@@ -42,6 +43,7 @@ func Load(path string) (*Store, error) {
 }
 
 func (s *Store) Changed(module, branch, commit string) bool {
+	// 只要 commit 不同就认为基础模块需要重新 mvn install。
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	entry, ok := s.Entries[key(module, branch)]
@@ -68,6 +70,7 @@ func (s *Store) Save() error {
 	if err := os.WriteFile(tmp, data, 0o600); err != nil {
 		return err
 	}
+	// 先写临时文件再 rename，避免部署进程中断时留下半截 JSON。
 	return os.Rename(tmp, s.path)
 }
 

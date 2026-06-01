@@ -30,6 +30,7 @@ type Options struct {
 
 type Deployer struct {
 	Config *config.Config
+	// Runner 负责有实时输出的命令；Output 用于 git rev-parse 这类需要拿返回值的命令。
 	Runner runner.Runner
 	Output gitops.OutputRunner
 	Cache  *cache.Store
@@ -61,6 +62,7 @@ func (d *Deployer) Run(ctx context.Context, opts Options) error {
 	sem := make(chan struct{}, opts.Concurrency)
 	errs := make(chan error, len(opts.Modules))
 	var wg sync.WaitGroup
+	// 多个主模块可以并发部署；共享资源通过内部锁保护。
 	for _, module := range opts.Modules {
 		module := module
 		wg.Add(1)
@@ -84,6 +86,7 @@ func (d *Deployer) Run(ctx context.Context, opts Options) error {
 }
 
 func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName string) error {
+	// 获取同模块 lease 后，如果后续又有人部署同一模块，本次任务会在阶段边界快速退出。
 	lease, err := d.Locks.AcquireModule(moduleName)
 	if err != nil {
 		return stageErr(moduleName, "acquire module lock", err)
@@ -103,6 +106,7 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 	allModules = append(allModules, moduleName)
 	git := gitops.Client{Runner: d.Runner}
 
+	// 先把依赖模块和主模块都拉到本地，并确保聚合 pom.xml 里有对应 module。
 	for _, name := range allModules {
 		if err := lease.Check(); err != nil {
 			return stageErr(moduleName, "superseded", err)
@@ -120,6 +124,7 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 		}
 	}
 
+	// 基础模块用 HEAD 缓存判断是否需要重新 install，减少无意义构建。
 	for _, dep := range module.Dependencies {
 		if err := lease.Check(); err != nil {
 			return stageErr(moduleName, "superseded", err)
@@ -148,6 +153,7 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 		return stageErr(moduleName, "superseded", err)
 	}
 	if err := d.withMavenLock(ctx, func() error {
+		// 主模块始终构建，确保本次发布产物来自当前分支最新代码。
 		cmd := maven.BuildInstallCommand(d.Config.BuildRoot, moduleName, false, d.mavenOptions())
 		return d.Runner.Run(ctx, cmd)
 	}); err != nil {
@@ -176,6 +182,7 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 	}
 
 	if module.RemoteScript != "" {
+		// 如果配置了自定义远端脚本，优先交给脚本处理重启、通知等特殊动作。
 		if err := d.Runner.Run(ctx, remote.ScriptCommand(d.Config.SSH, module.RemoteScript)); err != nil {
 			return stageErr(moduleName, "run remote script", err)
 		}
@@ -194,6 +201,7 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 }
 
 func (d *Deployer) withMavenLock(ctx context.Context, fn func() error) error {
+	// Maven install 会写本地仓库；并发写同一个 .m2 容易互相影响，所以统一串行化。
 	lease, err := d.Locks.AcquireExclusive(ctx, "maven-install", 500*time.Millisecond)
 	if err != nil {
 		return err
@@ -205,6 +213,7 @@ func (d *Deployer) withMavenLock(ctx context.Context, fn func() error) error {
 }
 
 func (d *Deployer) ensurePomModule(ctx context.Context, module string) error {
+	// 多个部署进程可能同时发现新模块，POM 更新必须加锁避免互相覆盖。
 	lease, err := d.Locks.AcquireExclusive(ctx, "pom-modules", 200*time.Millisecond)
 	if err != nil {
 		return err
@@ -241,6 +250,7 @@ func stageErr(module, stage string, err error) error {
 }
 
 func EnsureDirs(cfg *config.Config) error {
+	// 启动时先创建本地目录，后续步骤失败时就能更聚焦在 git/mvn/ssh 等真实问题上。
 	for _, dir := range []string{cfg.Workspace, cfg.BuildRoot, cfg.StagingDir, cfg.LockDir, filepath.Dir(cfg.CacheFile)} {
 		if dir == "" || dir == "." {
 			continue

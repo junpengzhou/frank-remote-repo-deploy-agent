@@ -11,6 +11,7 @@ import (
 )
 
 type Config struct {
+	// Workspace 是 agent 的总工作目录；BuildRoot 通常是包含聚合 pom.xml 的 Maven 根目录。
 	Workspace    string               `yaml:"workspace"`
 	BuildRoot    string               `yaml:"buildRoot"`
 	StagingDir   string               `yaml:"stagingDir"`
@@ -78,6 +79,7 @@ func LoadFile(path string) (*Config, error) {
 }
 
 func applyDefaults(cfg *Config) {
+	// 默认值尽量贴近部署机常见命令名，让配置文件只关注差异化参数。
 	if cfg.Maven.Executable == "" {
 		cfg.Maven.Executable = "mvn"
 	}
@@ -106,6 +108,7 @@ func applyDefaults(cfg *Config) {
 }
 
 func (c *Config) Validate() error {
+	// 这里一次性收集所有配置问题，方便 Spug 日志里直接看到完整缺项列表。
 	var problems []string
 	if c.Workspace == "" {
 		problems = append(problems, "workspace is required")
@@ -134,6 +137,7 @@ func (c *Config) Validate() error {
 		problems = append(problems, "at least one module is required")
 	}
 	for name, module := range c.Modules {
+		// 依赖模块可以只参与构建缓存，不一定需要远端部署路径；真正被部署的模块会在 deploy 阶段再校验 remotePath/container。
 		if module.Repo == "" {
 			problems = append(problems, fmt.Sprintf("modules.%s.repo is required", name))
 		}
