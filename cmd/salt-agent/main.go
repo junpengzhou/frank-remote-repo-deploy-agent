@@ -39,7 +39,7 @@ func run(args []string) error {
 func runDeploy(args []string) error {
 	// CLI 只负责把 Salt 传入的参数翻译成部署选项；真正的流程编排在 internal/deploy。
 	fs := flag.NewFlagSet("deploy", flag.ContinueOnError)
-	configPath := fs.String("config", "configs/agent.yaml", "path to YAML config")
+	configPath := fs.String("config", "", "path to YAML config")
 	env := fs.String("env", "", "deployment environment name")
 	modulesCSV := fs.String("modules", "", "comma-separated module names")
 	concurrency := fs.Int("concurrency", 1, "number of main modules to deploy concurrently")
@@ -54,6 +54,9 @@ func runDeploy(args []string) error {
 	}
 	if *modulesCSV == "" {
 		return fmt.Errorf("--modules is required")
+	}
+	if *configPath == "" {
+		return fmt.Errorf("--config is required")
 	}
 
 	cfg, err := config.LoadFile(*configPath)
