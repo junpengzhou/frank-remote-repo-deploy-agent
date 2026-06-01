@@ -18,14 +18,14 @@ environments:
   test:
     branch: test
 modules:
-  ifintech-common:
+  example-common:
     repo: git@example.com/common.git
     remotePath: /data/common
     container: common
-  ifintech-frank:
+  example-frank:
     repo: git@example.com/frank.git
     packaging: war
-    dependencies: [ifintech-common]
+    dependencies: [example-common]
     remotePath: /data/productData/sahara-frank/
     container: frank
     logFile: /data/productData/logs/sahara-frank/catalina.out
@@ -45,8 +45,8 @@ modules:
 	if err != nil || branch != "test" {
 		t.Fatalf("expected test branch, got %q err=%v", branch, err)
 	}
-	names, err := cfg.ModuleNames(" ifintech-frank ")
-	if err != nil || len(names) != 1 || names[0] != "ifintech-frank" {
+	names, err := cfg.ModuleNames(" example-frank ")
+	if err != nil || len(names) != 1 || names[0] != "example-frank" {
 		t.Fatalf("unexpected module names: %#v err=%v", names, err)
 	}
 }
@@ -62,15 +62,15 @@ environments:
   test:
     branch: test
 modules:
-  ifintech-frank:
+  example-frank:
     repo: git@example.com/frank.git
-    dependencies: [ifintech-common]
+    dependencies: [example-common]
     remotePath: /data/productData/sahara-frank/
     container: frank
 `)
 
 	_, err := LoadFile(path)
-	if err == nil || !strings.Contains(err.Error(), "unknown module ifintech-common") {
+	if err == nil || !strings.Contains(err.Error(), "unknown module example-common") {
 		t.Fatalf("expected unknown dependency error, got %v", err)
 	}
 }

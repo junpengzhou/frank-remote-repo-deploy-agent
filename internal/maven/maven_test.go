@@ -3,14 +3,14 @@ package maven
 import "testing"
 
 func TestBuildInstallCommandIncludesModuleSettingsLocalRepoAndJavaHome(t *testing.T) {
-	cmd := BuildInstallCommand("/workspace", "ifintech-frank", true, Options{
+	cmd := BuildInstallCommand("/workspace", "example-frank", true, Options{
 		Executable: "mvn",
 		Settings:   "/opt/settings.xml",
 		LocalRepo:  "/cache/.m2",
 		ExtraArgs:  []string{"-DskipTests"},
 		JavaHome:   "/usr/local/jdk-21",
 	})
-	wantArgs := []string{"clean", "install", "-pl", "ifintech-frank", "-am", "-s", "/opt/settings.xml", "-Dmaven.repo.local=/cache/.m2", "-DskipTests"}
+	wantArgs := []string{"clean", "install", "-pl", "example-frank", "-am", "-s", "/opt/settings.xml", "-Dmaven.repo.local=/cache/.m2", "-DskipTests"}
 	if !equal(cmd.Args, wantArgs) {
 		t.Fatalf("args mismatch\nwant %#v\n got %#v", wantArgs, cmd.Args)
 	}

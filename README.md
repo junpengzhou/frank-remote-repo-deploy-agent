@@ -16,7 +16,7 @@ go build -o spug-agent ./cmd/spug-agent
 ./spug-agent deploy \
   --config configs/agent.yaml \
   --env test \
-  --modules ifintech-frank \
+  --modules example-frank \
   --tail
 ```
 
@@ -26,14 +26,14 @@ Deploy multiple main modules:
 ./spug-agent deploy \
   --config configs/agent.yaml \
   --env test \
-  --modules ifintech-frank,ifintech-user \
+  --modules example-frank,example-user \
   --concurrency 2
 ```
 
 Preview commands without running them:
 
 ```bash
-./spug-agent deploy --config configs/agent.yaml --env test --modules ifintech-frank --dry-run
+./spug-agent deploy --config configs/agent.yaml --env test --modules example-frank --dry-run
 ```
 
 ## Configuration
@@ -48,7 +48,7 @@ Copy `configs/agent.example.yaml` to `configs/agent.yaml` and adjust:
 - `environments.<name>.branch`
 - `modules.<name>.repo`, `dependencies`, `remotePath`, `container`, `logFile`, `remoteScript`
 
-`buildRoot` should be the directory containing the Maven aggregator `pom.xml`. Module repositories are cloned into `buildRoot/<module>`, matching normal Maven `<module>ifintech-frank</module>` layout.
+`buildRoot` should be the directory containing the Maven aggregator `pom.xml`. Module repositories are cloned into `buildRoot/<module>`, matching normal Maven `<module>example-frank</module>` layout.
 
 Dependency-only modules only need `repo` and `packaging`. Requested deployment modules must define `remotePath` and either `container` or `remoteScript`.
 

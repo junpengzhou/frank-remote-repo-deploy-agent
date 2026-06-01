@@ -12,12 +12,12 @@ func TestEnsureModuleAppendsMissingModuleBeforeClosingModules(t *testing.T) {
 <project>
     <description>broken legacy text /description>
     <modules>
-        <module>ifintech-frank</module>
+        <module>example-frank</module>
     </modules>
 </project>
 `)
 
-	changed, err := EnsureModule(path, "ifintech-test2")
+	changed, err := EnsureModule(path, "example-test2")
 	if err != nil {
 		t.Fatalf("EnsureModule returned error: %v", err)
 	}
@@ -29,7 +29,7 @@ func TestEnsureModuleAppendsMissingModuleBeforeClosingModules(t *testing.T) {
 		t.Fatal(err)
 	}
 	content := string(data)
-	if !strings.Contains(content, "        <module>ifintech-test2</module>\n    </modules>") {
+	if !strings.Contains(content, "        <module>example-test2</module>\n    </modules>") {
 		t.Fatalf("new module was not inserted before </modules> with matching indent:\n%s", content)
 	}
 }
@@ -37,12 +37,12 @@ func TestEnsureModuleAppendsMissingModuleBeforeClosingModules(t *testing.T) {
 func TestEnsureModuleDoesNotDuplicateExistingModule(t *testing.T) {
 	path := writePom(t, `<project>
     <modules>
-        <module>ifintech-frank</module>
+        <module>example-frank</module>
     </modules>
 </project>
 `)
 
-	changed, err := EnsureModule(path, "ifintech-frank")
+	changed, err := EnsureModule(path, "example-frank")
 	if err != nil {
 		t.Fatalf("EnsureModule returned error: %v", err)
 	}
@@ -53,7 +53,7 @@ func TestEnsureModuleDoesNotDuplicateExistingModule(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Count(string(data), "<module>ifintech-frank</module>") != 1 {
+	if strings.Count(string(data), "<module>example-frank</module>") != 1 {
 		t.Fatalf("module duplicated:\n%s", string(data))
 	}
 }
@@ -61,7 +61,7 @@ func TestEnsureModuleDoesNotDuplicateExistingModule(t *testing.T) {
 func TestEnsureModuleReturnsErrorWhenModulesBlockMissing(t *testing.T) {
 	path := writePom(t, `<project></project>`)
 
-	_, err := EnsureModule(path, "ifintech-test2")
+	_, err := EnsureModule(path, "example-test2")
 	if err == nil || !strings.Contains(err.Error(), "missing </modules>") {
 		t.Fatalf("expected missing modules error, got %v", err)
 	}

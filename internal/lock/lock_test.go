@@ -6,14 +6,14 @@ import (
 
 func TestModuleLeaseIsSupersededByNewerAcquire(t *testing.T) {
 	manager := NewManager(t.TempDir())
-	first, err := manager.AcquireModule("ifintech-frank")
+	first, err := manager.AcquireModule("example-frank")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if first.Superseded() {
 		t.Fatal("fresh lease should not be superseded")
 	}
-	_, err = manager.AcquireModule("ifintech-frank")
+	_, err = manager.AcquireModule("example-frank")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -44,7 +44,7 @@ func TestPrepareStagingExtractsWar(t *testing.T) {
 	dir := t.TempDir()
 	warPath := filepath.Join(dir, "app.war")
 	makeZip(t, warPath, map[string]string{"WEB-INF/classes/App.class": "bytecode"})
-	staging, err := PrepareStaging(Artifact{Path: warPath, Packaging: "war"}, filepath.Join(dir, "staging"), "ifintech-frank")
+	staging, err := PrepareStaging(Artifact{Path: warPath, Packaging: "war"}, filepath.Join(dir, "staging"), "example-frank")
 	if err != nil {
 		t.Fatal(err)
 	}
