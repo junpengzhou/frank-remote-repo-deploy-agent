@@ -15,7 +15,7 @@ func BuildInstallCommand(workDir, module string, alsoMake bool, opts Options) ru
 	if name == "" {
 		name = "mvn"
 	}
-	args := []string{"clean", "install", "-pl", module}
+	args := []string{"clean", "install", "-Dmaven.test.skip=true", "-pl", module}
 	if alsoMake {
 		args = append(args, "-am")
 	}
