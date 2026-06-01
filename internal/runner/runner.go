@@ -1,0 +1,86 @@
+package runner
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"strings"
+)
+
+type Command struct {
+	Name string
+	Args []string
+	Dir  string
+	Env  map[string]string
+}
+
+func (c Command) String() string {
+	return strings.TrimSpace(c.Name + " " + strings.Join(c.Args, " "))
+}
+
+type Runner interface {
+	Run(ctx context.Context, cmd Command) error
+}
+
+type ExecRunner struct {
+	Stdout io.Writer
+	Stderr io.Writer
+	DryRun bool
+}
+
+func (r ExecRunner) Run(ctx context.Context, spec Command) error {
+	if spec.Name == "" {
+		return errors.New("command name is required")
+	}
+	out := r.Stdout
+	if out == nil {
+		out = os.Stdout
+	}
+	errOut := r.Stderr
+	if errOut == nil {
+		errOut = os.Stderr
+	}
+	fmt.Fprintf(out, "[cmd] %s\n", spec.String())
+	if r.DryRun {
+		return nil
+	}
+	cmd := exec.CommandContext(ctx, spec.Name, spec.Args...)
+	cmd.Dir = spec.Dir
+	cmd.Stdout = out
+	cmd.Stderr = errOut
+	cmd.Env = os.Environ()
+	for key, value := range spec.Env {
+		cmd.Env = append(cmd.Env, key+"="+value)
+	}
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("command failed: %s: %w", spec.String(), err)
+	}
+	return nil
+}
+
+func (r ExecRunner) Output(ctx context.Context, spec Command) (string, error) {
+	if spec.Name == "" {
+		return "", errors.New("command name is required")
+	}
+	if r.DryRun {
+		return "", nil
+	}
+	cmd := exec.CommandContext(ctx, spec.Name, spec.Args...)
+	cmd.Dir = spec.Dir
+	cmd.Env = os.Environ()
+	for key, value := range spec.Env {
+		cmd.Env = append(cmd.Env, key+"="+value)
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("command failed: %s: %w: %s", spec.String(), err, strings.TrimSpace(stderr.String()))
+	}
+	return stdout.String(), nil
+}

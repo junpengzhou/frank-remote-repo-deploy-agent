@@ -1,0 +1,60 @@
+workspace: /data/spug-agent
+buildRoot: /data/spug-agent/build
+stagingDir: /data/spug-agent/staging
+cacheFile: /data/spug-agent/cache/build-cache.json
+lockDir: /data/spug-agent/locks
+
+jdk:
+  javaHome: /usr/local/jdk-21
+
+maven:
+  executable: mvn
+  settings: /opt/maven/conf/settings.xml
+  localRepo: /data/spug-agent/.m2/repository
+  extraArgs:
+    - -DskipTests
+
+ssh:
+  user: root
+  host: 10.0.0.1
+  port: 22
+  keyFile: /home/spug/.ssh/id_rsa
+
+rsync:
+  executable: rsync
+  options:
+    - -az
+    - --delete
+    - --partial
+
+environments:
+  test:
+    branch: test
+  prod:
+    branch: master
+
+modules:
+  ifintech-common:
+    repo: git@gitlab.example.com:ifintech/ifintech-common.git
+    packaging: jar
+
+  ifintech-web-starter:
+    repo: git@gitlab.example.com:ifintech/ifintech-web-starter.git
+    packaging: jar
+
+  ifintech-es-common:
+    repo: git@gitlab.example.com:ifintech/ifintech-es-common.git
+    packaging: jar
+
+  ifintech-frank:
+    repo: git@gitlab.example.com:ifintech/ifintech-frank.git
+    packaging: war
+    dependencies:
+      - ifintech-common
+      - ifintech-web-starter
+      - ifintech-es-common
+    remotePath: /data/productData/sahara-frank/
+    container: frank
+    logFile: /data/productData/logs/sahara-frank/catalina.out
+    # remoteScript can be used for a custom post-sync hook.
+    # When omitted, the agent runs: docker restart <container>
