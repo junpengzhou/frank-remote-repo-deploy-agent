@@ -194,7 +194,9 @@ func (d *Deployer) withMavenLock(ctx context.Context, fn func() error) error {
 	if err != nil {
 		return err
 	}
-	defer lease.Release()
+	defer func(lease *lock.FileLock) {
+		_ = lease.Release()
+	}(lease)
 	return fn()
 }
 

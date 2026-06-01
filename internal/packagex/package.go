@@ -66,7 +66,9 @@ func unzip(src, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer reader.Close()
+	defer func(reader *zip.ReadCloser) {
+		_ = reader.Close()
+	}(reader)
 	for _, file := range reader.File {
 		target := filepath.Join(dest, file.Name)
 		cleanDest, err := filepath.Abs(dest)
@@ -95,12 +97,12 @@ func unzip(src, dest string) error {
 		}
 		out, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, file.Mode())
 		if err != nil {
-			in.Close()
+			_ = in.Close()
 			return err
 		}
 		_, copyErr := io.Copy(out, in)
 		closeErr := out.Close()
-		in.Close()
+		_ = in.Close()
 		if copyErr != nil {
 			return copyErr
 		}
@@ -116,7 +118,9 @@ func copyFile(src, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func(in *os.File) {
+		_ = in.Close()
+	}(in)
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return err
 	}
@@ -124,7 +128,9 @@ func copyFile(src, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func(out *os.File) {
+		_ = out.Close()
+	}(out)
 	_, err = io.Copy(out, in)
 	return err
 }

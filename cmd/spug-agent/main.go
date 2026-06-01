@@ -17,7 +17,7 @@ import (
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
-		fmt.Fprintf(os.Stderr, "spug-agent: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "spug-agent: %v\n", err)
 		os.Exit(1)
 	}
 }
@@ -85,8 +85,8 @@ func runDeploy(args []string) error {
 }
 
 func usage() error {
-	fmt.Fprintln(os.Stderr, `Usage:
-  spug-agent deploy --config configs/agent.yaml --env test --modules ifintech-frank[,ifintech-user]
+	_, _ = fmt.Fprintln(os.Stderr, `Usage:
+  spug-agent deploy --config configs/agent.yaml --env test --modules demo1[,demo2]
 
 Options:
   --concurrency N   Deploy multiple main modules concurrently.

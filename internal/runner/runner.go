@@ -44,7 +44,7 @@ func (r ExecRunner) Run(ctx context.Context, spec Command) error {
 	if errOut == nil {
 		errOut = os.Stderr
 	}
-	fmt.Fprintf(out, "[cmd] %s\n", spec.String())
+	_, _ = fmt.Fprintf(out, "[cmd] %s\n", spec.String())
 	if r.DryRun {
 		return nil
 	}
