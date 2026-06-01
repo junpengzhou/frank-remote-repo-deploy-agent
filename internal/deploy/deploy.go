@@ -14,6 +14,7 @@ import (
 	"frank-remote-repo-deploy-agent/internal/lock"
 	"frank-remote-repo-deploy-agent/internal/maven"
 	"frank-remote-repo-deploy-agent/internal/packagex"
+	"frank-remote-repo-deploy-agent/internal/pomxml"
 	"frank-remote-repo-deploy-agent/internal/remote"
 	"frank-remote-repo-deploy-agent/internal/rsync"
 	"frank-remote-repo-deploy-agent/internal/runner"
@@ -114,6 +115,9 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 		if err := git.Checkout(ctx, dir, branch); err != nil {
 			return stageErr(name, "checkout branch", err)
 		}
+		if err := d.ensurePomModule(ctx, name); err != nil {
+			return stageErr(name, "ensure aggregator pom module", err)
+		}
 	}
 
 	for _, dep := range module.Dependencies {
@@ -198,6 +202,24 @@ func (d *Deployer) withMavenLock(ctx context.Context, fn func() error) error {
 		_ = lease.Release()
 	}(lease)
 	return fn()
+}
+
+func (d *Deployer) ensurePomModule(ctx context.Context, module string) error {
+	lease, err := d.Locks.AcquireExclusive(ctx, "pom-modules", 200*time.Millisecond)
+	if err != nil {
+		return err
+	}
+	defer func(lease *lock.FileLock) {
+		_ = lease.Release()
+	}(lease)
+	changed, err := pomxml.EnsureModule(filepath.Join(d.Config.BuildRoot, "pom.xml"), module)
+	if err != nil {
+		return err
+	}
+	if changed {
+		fmt.Printf("[pom] appended missing module %s to %s\n", module, filepath.Join(d.Config.BuildRoot, "pom.xml"))
+	}
+	return nil
 }
 
 func (d *Deployer) moduleDir(module string) string {
