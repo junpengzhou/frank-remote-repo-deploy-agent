@@ -10,6 +10,17 @@ go test ./...
 go build -o salt-agent ./cmd/salt-agent
 ```
 
+Build a CentOS-compatible Linux amd64 artifact from Windows with Docker:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/build-centos.ps1 -Version dev
+```
+
+The generated files are written to `build/centos/`:
+
+- `salt-agent`
+- `salt-agent.sha256`
+
 ## Deploy
 
 ```bash

@@ -46,6 +46,7 @@ func runDeploy(args []string) error {
 	dryRun := fs.Bool("dry-run", false, "print commands without executing them")
 	followLogs := fs.Bool("tail", false, "follow remote logs after deployment")
 	tailLines := fs.Int("tail-lines", 3000, "number of remote log lines to print")
+	operator := fs.String("user", "", "operator name passed to module remoteScript as --user")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -87,6 +88,7 @@ func runDeploy(args []string) error {
 		Concurrency: *concurrency,
 		FollowLogs:  *followLogs,
 		TailLines:   *tailLines,
+		Operator:    *operator,
 	})
 }
 
@@ -97,6 +99,7 @@ func usage() error {
 Options:
   --concurrency N   Deploy multiple main modules concurrently.
   --dry-run         Print external commands without running them.
+  --user NAME       Append --user NAME to module remoteScript.
   --tail            Follow remote logs after restart.
   --tail-lines N    Number of log lines to print, default 3000.`)
 	return nil
