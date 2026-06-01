@@ -12,7 +12,7 @@ maven:
   settings: /opt/maven/conf/settings.xml
   localRepo: /data/spug-agent/.m2/repository
   extraArgs:
-    - -DskipTests
+    - -Dmaven.test.skip=true
 
 ssh:
   user: root
