@@ -9,8 +9,8 @@ import (
 
 func TestLoadFileAppliesDefaultsAndResolvesBranch(t *testing.T) {
 	path := writeConfig(t, `
-workspace: /tmp/spug-agent
-cacheFile: /tmp/spug-agent/cache.json
+workspace: /tmp/salt-agent
+cacheFile: /tmp/salt-agent/cache.json
 ssh:
   user: deploy
   host: 10.0.0.2
@@ -53,8 +53,8 @@ modules:
 
 func TestLoadFileRejectsUnknownDependency(t *testing.T) {
 	path := writeConfig(t, `
-workspace: /tmp/spug-agent
-cacheFile: /tmp/spug-agent/cache.json
+workspace: /tmp/salt-agent
+cacheFile: /tmp/salt-agent/cache.json
 ssh:
   user: deploy
   host: 10.0.0.2

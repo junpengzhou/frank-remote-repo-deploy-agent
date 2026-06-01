@@ -1,8 +1,8 @@
-workspace: /data/spug-agent
-buildRoot: /data/spug-agent/build
-stagingDir: /data/spug-agent/staging
-cacheFile: /data/spug-agent/cache/build-cache.json
-lockDir: /data/spug-agent/locks
+workspace: /data/salt-agent
+buildRoot: /data/salt-agent/build
+stagingDir: /data/salt-agent/staging
+cacheFile: /data/salt-agent/cache/build-cache.json
+lockDir: /data/salt-agent/locks
 
 jdk:
   javaHome: /usr/local/jdk-21
@@ -10,7 +10,7 @@ jdk:
 maven:
   executable: mvn
   settings: /opt/maven/conf/settings.xml
-  localRepo: /data/spug-agent/.m2/repository
+  localRepo: /data/salt-agent/.m2/repository
   extraArgs:
     - -Dmaven.test.skip=true
 

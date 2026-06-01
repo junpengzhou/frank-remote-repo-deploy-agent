@@ -14,7 +14,7 @@
 
 **Files:**
 - Create: `go.mod`
-- Create: `cmd/spug-agent/main.go`
+- Create: `cmd/salt-agent/main.go`
 - Create: `internal/config/config.go`
 - Test: `internal/config/config_test.go`
 
@@ -68,11 +68,11 @@
 ### Task 5: CLI, Example Config, And Docs
 
 **Files:**
-- Modify: `cmd/spug-agent/main.go`
+- Modify: `cmd/salt-agent/main.go`
 - Create: `configs/agent.example.yaml`
 - Create: `README.md`
 
 - [ ] Add CLI flag parsing for `deploy`, `--config`, `--env`, `--modules`, `--concurrency`, `--dry-run`, and `--tail`.
 - [ ] Add example config matching the requested Spug deployment flow.
 - [ ] Document install, build, config, and common deployment examples.
-- [ ] Run `gofmt`, `go test ./...`, and `go build ./cmd/spug-agent`.
+- [ ] Run `gofmt`, `go test ./...`, and `go build ./cmd/salt-agent`.

@@ -9,7 +9,7 @@ Build a standard, extensible Go CLI that Spug can call once per release to deplo
 The first version is a one-shot command:
 
 ```bash
-spug-agent deploy --config configs/agent.yaml --env test --modules example-frank,example-user
+salt-agent deploy --config configs/agent.yaml --env test --modules example-frank,example-user
 ```
 
 It handles source checkout, Maven build cache decisions, packaging, rsync deployment, remote restart, and log tail output. It does not expose a long-running HTTP API.

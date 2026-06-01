@@ -1,19 +1,19 @@
 # Spug Agent CLI
 
-`spug-agent` is a one-shot Go CLI for Spug-style Java deployments. It checks out configured repositories, switches them to the environment branch, builds changed dependency modules with Maven cache awareness, builds the requested main module, prepares a staging directory, syncs it to the remote host with `rsync --delete`, restarts the remote service, and prints remote logs.
+`salt-agent` is a one-shot Go CLI for Spug-style Java deployments. It checks out configured repositories, switches them to the environment branch, builds changed dependency modules with Maven cache awareness, builds the requested main module, prepares a staging directory, syncs it to the remote host with `rsync --delete`, restarts the remote service, and prints remote logs.
 
 ## Build
 
 ```bash
 go mod tidy
 go test ./...
-go build -o spug-agent ./cmd/spug-agent
+go build -o salt-agent ./cmd/salt-agent
 ```
 
 ## Deploy
 
 ```bash
-./spug-agent deploy \
+./salt-agent deploy \
   --config configs/agent.yaml \
   --env test \
   --modules example-frank \
@@ -23,7 +23,7 @@ go build -o spug-agent ./cmd/spug-agent
 Deploy multiple main modules:
 
 ```bash
-./spug-agent deploy \
+./salt-agent deploy \
   --config configs/agent.yaml \
   --env test \
   --modules example-frank,example-user \
@@ -33,7 +33,7 @@ Deploy multiple main modules:
 Preview commands without running them:
 
 ```bash
-./spug-agent deploy --config configs/agent.yaml --env test --modules example-frank --dry-run
+./salt-agent deploy --config configs/agent.yaml --env test --modules example-frank --dry-run
 ```
 
 ## Configuration
