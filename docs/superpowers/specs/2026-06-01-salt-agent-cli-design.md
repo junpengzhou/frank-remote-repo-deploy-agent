@@ -1,8 +1,8 @@
-# Spug Agent CLI Design
+# Salt Agent CLI Design
 
 ## Goal
 
-Build a standard, extensible Go CLI that Spug can call once per release to deploy one or more Java modules from source to Docker-backed remote hosts.
+Build a standard, extensible Go CLI that Salt can call once per release to deploy one or more Java modules from source to Docker-backed remote hosts.
 
 ## Scope
 
@@ -70,7 +70,7 @@ Multiple main modules can deploy concurrently. Shared Maven local repository wri
 
 ## Error Handling
 
-Each stage returns contextual errors that include the module, stage name, command, exit code, and stderr summary. Command output is streamed to stdout/stderr so Spug can display progress in real time.
+Each stage returns contextual errors that include the module, stage name, command, exit code, and stderr summary. Command output is streamed to stdout/stderr so Salt can display progress in real time.
 
 ## Testing
 

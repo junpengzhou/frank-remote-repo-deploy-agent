@@ -108,7 +108,7 @@ func applyDefaults(cfg *Config) {
 }
 
 func (c *Config) Validate() error {
-	// 这里一次性收集所有配置问题，方便 Spug 日志里直接看到完整缺项列表。
+	// 这里一次性收集所有配置问题，方便 Salt 日志里直接看到完整缺项列表。
 	var problems []string
 	if c.Workspace == "" {
 		problems = append(problems, "workspace is required")

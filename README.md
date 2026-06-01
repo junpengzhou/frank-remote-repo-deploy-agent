@@ -1,6 +1,6 @@
-# Spug Agent CLI
+# Salt Agent CLI
 
-`salt-agent` is a one-shot Go CLI for Spug-style Java deployments. It checks out configured repositories, switches them to the environment branch, builds changed dependency modules with Maven cache awareness, builds the requested main module, prepares a staging directory, syncs it to the remote host with `rsync --delete`, restarts the remote service, and prints remote logs.
+`salt-agent` is a one-shot Go CLI for Salt-style Java deployments. It checks out configured repositories, switches them to the environment branch, builds changed dependency modules with Maven cache awareness, builds the requested main module, prepares a staging directory, syncs it to the remote host with `rsync --delete`, restarts the remote service, and prints remote logs.
 
 ## Build
 

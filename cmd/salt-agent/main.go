@@ -37,7 +37,7 @@ func run(args []string) error {
 }
 
 func runDeploy(args []string) error {
-	// CLI 只负责把 Spug 传入的参数翻译成部署选项；真正的流程编排在 internal/deploy。
+	// CLI 只负责把 Salt 传入的参数翻译成部署选项；真正的流程编排在 internal/deploy。
 	fs := flag.NewFlagSet("deploy", flag.ContinueOnError)
 	configPath := fs.String("config", "configs/agent.yaml", "path to YAML config")
 	env := fs.String("env", "", "deployment environment name")
@@ -72,7 +72,7 @@ func runDeploy(args []string) error {
 	if err != nil {
 		return err
 	}
-	// Spug 或用户中断进程时，context 会传递给 git/mvn/rsync/ssh 等外部命令。
+	// Salt 或用户中断进程时，context 会传递给 git/mvn/rsync/ssh 等外部命令。
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	exec := runner.ExecRunner{Stdout: os.Stdout, Stderr: os.Stderr, DryRun: *dryRun}

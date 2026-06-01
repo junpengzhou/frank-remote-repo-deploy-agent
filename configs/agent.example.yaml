@@ -18,7 +18,7 @@ ssh:
   user: root
   host: 10.0.0.1
   port: 22
-  keyFile: /home/spug/.ssh/id_rsa
+  keyFile: /home/Salt/.ssh/id_rsa
 
 rsync:
   executable: rsync

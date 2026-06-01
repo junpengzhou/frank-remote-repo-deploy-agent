@@ -1,8 +1,8 @@
-# Spug Agent CLI Implementation Plan
+# Salt Agent CLI Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a robust Go CLI for one-shot Spug deployments with configurable source checkout, Maven caching, artifact staging, rsync sync, remote restart, and log tail.
+**Goal:** Build a robust Go CLI for one-shot Salt deployments with configurable source checkout, Maven caching, artifact staging, rsync sync, remote restart, and log tail.
 
 **Architecture:** The command entrypoint delegates to small internal packages for config, command execution, cache, locks, Maven, rsync, remote SSH, packaging, and orchestration. External commands are built in focused packages and executed through a cancellable runner.
 
@@ -73,6 +73,6 @@
 - Create: `README.md`
 
 - [ ] Add CLI flag parsing for `deploy`, `--config`, `--env`, `--modules`, `--concurrency`, `--dry-run`, and `--tail`.
-- [ ] Add example config matching the requested Spug deployment flow.
+- [ ] Add example config matching the requested Salt deployment flow.
 - [ ] Document install, build, config, and common deployment examples.
 - [ ] Run `gofmt`, `go test ./...`, and `go build ./cmd/salt-agent`.
