@@ -25,6 +25,7 @@ func BuildInstallCommand(workDir, module string, alsoMake bool, opts Options) ru
 	if opts.LocalRepo != "" {
 		args = append(args, "-Dmaven.repo.local="+opts.LocalRepo)
 	}
+	// append the extra args to mvn
 	args = append(args, opts.ExtraArgs...)
 	env := map[string]string{}
 	if opts.JavaHome != "" {
