@@ -1,0 +1,7 @@
+.git
+.idea
+build
+*.exe
+*.log
+tmp
+dist
