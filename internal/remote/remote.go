@@ -12,6 +12,13 @@ func ScriptCommand(ssh config.SSHConfig, script string) runner.Command {
 	return sshCommand(ssh, script)
 }
 
+func ScriptCommandWithUser(ssh config.SSHConfig, script, operator string) runner.Command {
+	if strings.TrimSpace(operator) == "" {
+		return ScriptCommand(ssh, script)
+	}
+	return sshCommand(ssh, script+" --user "+shellQuote(operator))
+}
+
 func DockerRestartCommand(ssh config.SSHConfig, container string) runner.Command {
 	return sshCommand(ssh, "docker restart "+shellQuote(container))
 }
