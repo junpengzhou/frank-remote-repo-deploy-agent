@@ -26,6 +26,7 @@ type Options struct {
 	Concurrency int
 	FollowLogs  bool
 	TailLines   int
+	Operator    string
 }
 
 type Deployer struct {
@@ -183,7 +184,7 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 
 	if module.RemoteScript != "" {
 		// 如果配置了自定义远端脚本，优先交给脚本处理重启、通知等特殊动作。
-		if err := d.Runner.Run(ctx, remote.ScriptCommand(d.Config.SSH, module.RemoteScript)); err != nil {
+		if err := d.Runner.Run(ctx, remote.ScriptCommandWithUser(d.Config.SSH, module.RemoteScript, opts.Operator)); err != nil {
 			return stageErr(moduleName, "run remote script", err)
 		}
 	} else if module.Container != "" {
