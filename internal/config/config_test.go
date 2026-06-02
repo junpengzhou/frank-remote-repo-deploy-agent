@@ -17,6 +17,7 @@ ssh:
 environments:
   test:
     branch: test
+    mavenProfile: test
 modules:
   example-common:
     repo: git@example.com/common.git
@@ -44,6 +45,9 @@ modules:
 	branch, err := cfg.BranchForEnv("test")
 	if err != nil || branch != "test" {
 		t.Fatalf("expected test branch, got %q err=%v", branch, err)
+	}
+	if cfg.Environments["test"].MavenProfile != "test" {
+		t.Fatalf("expected test maven profile, got %q", cfg.Environments["test"].MavenProfile)
 	}
 	names, err := cfg.ModuleNames(" example-frank ")
 	if err != nil || len(names) != 1 || names[0] != "example-frank" {

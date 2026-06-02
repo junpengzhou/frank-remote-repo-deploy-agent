@@ -30,6 +30,8 @@ rsync:
 environments:
   test:
     branch: test
+    # mavenProfile can be used for a custom maven profile if configured.
+    mavenProfile: test
   prod:
     branch: master
 

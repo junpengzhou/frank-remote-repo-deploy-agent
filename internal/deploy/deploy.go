@@ -139,7 +139,7 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 			continue
 		}
 		if err := d.withMavenLock(ctx, func() error {
-			cmd := maven.BuildInstallCommand(d.Config.BuildRoot, dep, true, d.mavenOptions())
+			cmd := maven.BuildInstallCommand(d.Config.BuildRoot, dep, true, d.mavenOptions(opts.Env))
 			return d.Runner.Run(ctx, cmd)
 		}); err != nil {
 			return stageErr(dep, "maven install dependency", err)
@@ -155,7 +155,7 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 	}
 	if err := d.withMavenLock(ctx, func() error {
 		// 主模块始终构建，确保本次发布产物来自当前分支最新代码。
-		cmd := maven.BuildInstallCommand(d.Config.BuildRoot, moduleName, false, d.mavenOptions())
+		cmd := maven.BuildInstallCommand(d.Config.BuildRoot, moduleName, false, d.mavenOptions(opts.Env))
 		return d.Runner.Run(ctx, cmd)
 	}); err != nil {
 		return stageErr(moduleName, "maven install module", err)
@@ -236,11 +236,13 @@ func (d *Deployer) moduleDir(module string) string {
 	return filepath.Join(d.Config.BuildRoot, module)
 }
 
-func (d *Deployer) mavenOptions() maven.Options {
+func (d *Deployer) mavenOptions(env string) maven.Options {
+	envConfig := d.Config.Environments[env]
 	return maven.Options{
 		Executable: d.Config.Maven.Executable,
 		Settings:   d.Config.Maven.Settings,
 		LocalRepo:  d.Config.Maven.LocalRepo,
+		Profile:    envConfig.MavenProfile,
 		ExtraArgs:  d.Config.Maven.ExtraArgs,
 		JavaHome:   d.Config.JDK.JavaHome,
 	}

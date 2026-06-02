@@ -56,10 +56,12 @@ Copy `configs/agent.example.yaml` to `configs/agent.yaml` and adjust:
 - `maven.executable`, `maven.settings`, `maven.localRepo`
 - `ssh.user`, `ssh.host`, `ssh.port`, `ssh.keyFile`
 - `rsync.options`
-- `environments.<name>.branch`
+- `environments.<name>.branch`, `environments.<name>.mavenProfile`
 - `modules.<name>.repo`, `dependencies`, `remotePath`, `container`, `logFile`, `remoteScript`
 
 `buildRoot` should be the directory containing the Maven aggregator `pom.xml`. Module repositories are cloned into `buildRoot/<module>`, matching normal Maven `<module>example-frank</module>` layout.
+
+When `environments.<name>.mavenProfile` is configured, Maven install commands for that environment include `-P <mavenProfile>`.
 
 Dependency-only modules only need `repo` and `packaging`. Requested deployment modules must define `remotePath` and either `container` or `remoteScript`.
 

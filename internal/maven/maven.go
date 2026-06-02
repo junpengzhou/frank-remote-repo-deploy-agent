@@ -6,6 +6,7 @@ type Options struct {
 	Executable string
 	Settings   string
 	LocalRepo  string
+	Profile    string
 	ExtraArgs  []string
 	JavaHome   string
 }
@@ -24,6 +25,9 @@ func BuildInstallCommand(workDir, module string, alsoMake bool, opts Options) ru
 	}
 	if opts.LocalRepo != "" {
 		args = append(args, "-Dmaven.repo.local="+opts.LocalRepo)
+	}
+	if opts.Profile != "" {
+		args = append(args, "-P", opts.Profile)
 	}
 	// append the extra args to mvn
 	args = append(args, opts.ExtraArgs...)

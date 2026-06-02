@@ -49,7 +49,8 @@ type RsyncConfig struct {
 }
 
 type EnvConfig struct {
-	Branch string `yaml:"branch"`
+	Branch       string `yaml:"branch"`
+	MavenProfile string `yaml:"mavenProfile"`
 }
 
 type Module struct {

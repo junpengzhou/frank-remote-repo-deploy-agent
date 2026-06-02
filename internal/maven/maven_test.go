@@ -19,6 +19,16 @@ func TestBuildInstallCommandIncludesModuleSettingsLocalRepoAndJavaHome(t *testin
 	}
 }
 
+func TestBuildInstallCommandIncludesMavenProfileWhenConfigured(t *testing.T) {
+	cmd := BuildInstallCommand("/workspace", "example-frank", false, Options{
+		Profile: "test",
+	})
+	wantArgs := []string{"clean", "install", "-pl", "example-frank", "-P", "test"}
+	if !equal(cmd.Args, wantArgs) {
+		t.Fatalf("args mismatch\nwant %#v\n got %#v", wantArgs, cmd.Args)
+	}
+}
+
 func equal(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
