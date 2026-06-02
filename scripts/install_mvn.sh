@@ -7,20 +7,17 @@ TAR_DIR="/data/salt-agent/apache-maven-3.9.16-bin.tar.gz"
 
 # 检查并配置 JAVA_HOME
 JAVA_HOME="/data/salt-agent/java/jdk21"
-if [ -z "$JAVA_HOME" ] || [ ! -x "$JAVA_HOME/bin/java" ]; then
-    if [ -d "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/java" ]; then
-        echo "Found Java installation at $JAVA_HOME, configuring JAVA_HOME..."
-        export JAVA_HOME="${JAVA_HOME}"
-        echo "export JAVA_HOME=${JAVA_HOME}" | sudo tee /etc/profile.d/java.sh
-        echo "export PATH=\$PATH:\$JAVA_HOME/bin" | sudo tee -a /etc/profile.d/java.sh
-        source /etc/profile.d/java.sh
-        echo "JAVA_HOME configured successfully."
-    else
-        echo "Error: JAVA_HOME not set or Java not found at $JAVA_HOME"
-        exit 1
-    fi
+
+if [ -d "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+    echo "Found Java installation at $JAVA_HOME, configuring JAVA_HOME..."
+    export JAVA_HOME="${JAVA_HOME}"
+    echo "export JAVA_HOME=${JAVA_HOME}" | sudo tee /etc/profile.d/java.sh
+    echo "export PATH=\$PATH:\$JAVA_HOME/bin" | sudo tee -a /etc/profile.d/java.sh
+    source /etc/profile.d/java.sh
+    echo "JAVA_HOME configured successfully."
 else
-    echo "JAVA_HOME is already set to $JAVA_HOME"
+    echo "Error: JAVA_HOME not set or Java not found at $JAVA_HOME"
+    exit 1
 fi
 
 # 判断如果INSTALL_DIR存在且其中的mvn可执行文件存在，则跳过解压
