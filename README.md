@@ -1,5 +1,7 @@
 # Salt Agent CLI
 
+Languages: [English](README.md) | [中文](README.zh-CN.md)
+
 `salt-agent` is a one-shot Go CLI for Salt-style Java deployments. It checks out configured repositories, switches them to the environment branch, builds changed dependency modules with Maven cache awareness, builds the requested main module, prepares a staging directory, syncs it to the remote host with `rsync --delete`, restarts the remote service, and prints remote logs.
 
 ## Build
@@ -63,13 +65,15 @@ Copy `configs/agent.example.yaml` to `configs/agent.yaml` and adjust:
 - `ssh.user`, `ssh.host`, `ssh.port`, `ssh.keyFile`
 - `rsync.options`
 - `environments.<name>.branch`, `environments.<name>.mavenProfile`
-- `modules.<name>.repo`, `dependencies`, `remotePath`, `container`, `logFile`, `remoteScript`
+- `modules.<name>.repo`, `dependencies`, `remotePath`, `container`, `logFile`, `healthUrl`, `healthTimeout`, `remoteScript`
 
 `buildRoot` should be the directory containing the Maven aggregator `pom.xml`. Module repositories are cloned into `buildRoot/<module>`, matching normal Maven `<module>example-frank</module>` layout.
 
 When `environments.<name>.mavenProfile` is configured, Maven install commands for that environment include `-P <mavenProfile>`.
 
 Dependency-only modules only need `repo` and `packaging`. Requested deployment modules must define `remotePath` and either `container` or `remoteScript`.
+
+`modules.<name>.healthTimeout` defaults to `2m` and accepts Go duration values such as `30s`, `2m`, or `5m`.
 
 ## Behavior
 
@@ -80,3 +84,4 @@ Dependency-only modules only need `repo` and `packaging`. Requested deployment m
 - Aggregator POM maintenance: after each repository checkout, the agent ensures `buildRoot/pom.xml` contains `<module>module-name</module>` and appends it to `<modules>` when missing.
 - Remote sync: WAR files are extracted locally, then synchronized with `rsync --delete` so removed classes and files are also removed remotely.
 - Logs: use `--tail` to follow remote logs after restart; omit it to print the last configured line count once.
+- Health checks: when `healthUrl` is configured, the agent polls it until HTTP 200 or `healthTimeout`. If `logFile` is configured, startup logs are followed while the health check runs and stopped when health succeeds or times out. If `healthUrl` is configured without `logFile`, success prints an English message indicating the app started and that logs are not configured; timeout prints an English unknown-status message.

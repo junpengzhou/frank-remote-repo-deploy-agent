@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestLoadFileAppliesDefaultsAndResolvesBranch(t *testing.T) {
@@ -30,6 +31,7 @@ modules:
     remotePath: /data/productData/sahara-frank/
     container: frank
     logFile: /data/productData/logs/sahara-frank/catalina.out
+    healthUrl: http://127.0.0.1:8080/actuator/health
 `)
 
 	cfg, err := LoadFile(path)
@@ -49,9 +51,43 @@ modules:
 	if cfg.Environments["test"].MavenProfile != "test" {
 		t.Fatalf("expected test maven profile, got %q", cfg.Environments["test"].MavenProfile)
 	}
+	if cfg.Modules["example-frank"].HealthURL != "http://127.0.0.1:8080/actuator/health" {
+		t.Fatalf("expected health url, got %q", cfg.Modules["example-frank"].HealthURL)
+	}
+	if cfg.Modules["example-frank"].HealthTimeout != 2*time.Minute {
+		t.Fatalf("expected default health timeout 2m, got %v", cfg.Modules["example-frank"].HealthTimeout)
+	}
 	names, err := cfg.ModuleNames(" example-frank ")
 	if err != nil || len(names) != 1 || names[0] != "example-frank" {
 		t.Fatalf("unexpected module names: %#v err=%v", names, err)
+	}
+}
+
+func TestLoadFileReadsCustomHealthTimeout(t *testing.T) {
+	path := writeConfig(t, `
+workspace: /tmp/salt-agent
+cacheFile: /tmp/salt-agent/cache.json
+ssh:
+  user: deploy
+  host: 10.0.0.2
+environments:
+  test:
+    branch: test
+modules:
+  example-frank:
+    repo: git@example.com/frank.git
+    remotePath: /data/frank
+    container: frank
+    healthUrl: http://127.0.0.1:8080/health
+    healthTimeout: 30s
+`)
+
+	cfg, err := LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile returned error: %v", err)
+	}
+	if cfg.Modules["example-frank"].HealthTimeout != 30*time.Second {
+		t.Fatalf("expected custom health timeout 30s, got %v", cfg.Modules["example-frank"].HealthTimeout)
 	}
 }
 

@@ -58,5 +58,9 @@ modules:
     remotePath: /data/xxx/example-simple/
     container: simple
     logFile: /data/xxx/logs/example-simple/catalina.out
+    # healthUrl enables startup health checks. HTTP 200 means the app is ready.
+    healthUrl: http://127.0.0.1:8080/actuator/health
+    # healthTimeout defaults to 2m when omitted. Use Go duration values like 30s, 2m, or 5m.
+    healthTimeout: 2m
     # remoteScript can be used for a custom post-sync hook.
     # When omitted, the agent runs: docker restart <container>

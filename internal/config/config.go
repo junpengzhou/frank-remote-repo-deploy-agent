@@ -6,6 +6,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -54,13 +55,15 @@ type EnvConfig struct {
 }
 
 type Module struct {
-	Repo         string   `yaml:"repo"`
-	Packaging    string   `yaml:"packaging"`
-	Dependencies []string `yaml:"dependencies"`
-	RemotePath   string   `yaml:"remotePath"`
-	Container    string   `yaml:"container"`
-	LogFile      string   `yaml:"logFile"`
-	RemoteScript string   `yaml:"remoteScript"`
+	Repo          string        `yaml:"repo"`
+	Packaging     string        `yaml:"packaging"`
+	Dependencies  []string      `yaml:"dependencies"`
+	RemotePath    string        `yaml:"remotePath"`
+	Container     string        `yaml:"container"`
+	LogFile       string        `yaml:"logFile"`
+	HealthURL     string        `yaml:"healthUrl"`
+	HealthTimeout time.Duration `yaml:"healthTimeout"`
+	RemoteScript  string        `yaml:"remoteScript"`
 }
 
 func LoadFile(path string) (*Config, error) {
@@ -100,8 +103,13 @@ func applyDefaults(cfg *Config) {
 		cfg.StagingDir = cfg.Workspace + "/staging"
 	}
 	for name, module := range cfg.Modules {
+		// 如果没有配置默认采用 war 形式
 		if module.Packaging == "" {
 			module.Packaging = "war"
+		}
+		// 如果没有配置默认采用为2分钟的健康检查超时
+		if module.HealthTimeout == 0 {
+			module.HealthTimeout = 2 * time.Minute
 		}
 		module.Packaging = strings.ToLower(module.Packaging)
 		cfg.Modules[name] = module
@@ -138,7 +146,7 @@ func (c *Config) Validate() error {
 		problems = append(problems, "at least one module is required")
 	}
 	for name, module := range c.Modules {
-		// 依赖模块可以只参与构建缓存，不一定需要远端部署路径；真正被部署的模块会在 deploy 阶段再校验 remotePath/container。
+		// 依赖模块可以只参与构建缓存，不一定需要远端部署路径；真正“被部署的模块”在 deploy 阶段再校验 remotePath/container。
 		if module.Repo == "" {
 			problems = append(problems, fmt.Sprintf("modules.%s.repo is required", name))
 		}

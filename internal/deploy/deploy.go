@@ -3,6 +3,8 @@ package deploy
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
@@ -196,10 +198,8 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 		}
 	}
 
-	if module.LogFile != "" {
-		if err := d.Runner.Run(ctx, remote.TailCommand(d.Config.SSH, module.LogFile, opts.FollowLogs, opts.TailLines)); err != nil {
-			return stageErr(moduleName, "tail remote log", err)
-		}
+	if err := d.monitorStartup(ctx, module, opts); err != nil {
+		return stageErr(moduleName, "monitor startup", err)
 	}
 	return nil
 }
@@ -249,6 +249,91 @@ func (d *Deployer) mavenOptions(env string) maven.Options {
 		ExtraArgs:  d.Config.Maven.ExtraArgs,
 		JavaHome:   d.Config.JDK.JavaHome,
 	}
+}
+
+func (d *Deployer) monitorStartup(ctx context.Context, module config.Module, opts Options) error {
+	if module.HealthURL == "" {
+		if module.LogFile == "" {
+			return nil
+		}
+		return d.Runner.Run(ctx, remote.TailCommand(d.Config.SSH, module.LogFile, opts.FollowLogs, opts.TailLines))
+	}
+
+	if module.LogFile == "" {
+		if err := waitForHealth(ctx, module.HealthURL, module.HealthTimeout); err != nil {
+			fmt.Println("Application status is unknown. Please check startup logs or verify the health check URL configuration.")
+			return nil
+		}
+		fmt.Println("Application started successfully, but logFile is not configured. Please check the server manually if startup logs are needed.")
+		return nil
+	}
+
+	tailCtx, cancelTail := context.WithCancel(ctx)
+	defer cancelTail()
+	tailDone := make(chan error, 1)
+	go func() {
+		tailDone <- d.Runner.Run(tailCtx, remote.TailCommand(d.Config.SSH, module.LogFile, true, opts.TailLines))
+	}()
+
+	healthDone := make(chan error, 1)
+	go func() {
+		healthDone <- waitForHealth(ctx, module.HealthURL, module.HealthTimeout)
+	}()
+
+	var healthErr error
+	select {
+	case healthErr = <-healthDone:
+		cancelTail()
+		<-tailDone
+	case tailErr := <-tailDone:
+		if tailErr != nil && opts.Debug {
+			fmt.Printf("[tail] log monitoring ended before health check completed: %v\n", tailErr)
+		}
+		healthErr = <-healthDone
+	}
+
+	if healthErr != nil {
+		fmt.Println("Application status is unknown. Please check startup logs or verify the health check URL configuration.")
+		return nil
+	}
+	fmt.Println("Application started successfully.")
+	return nil
+}
+
+func waitForHealth(ctx context.Context, healthURL string, timeout time.Duration) error {
+	if timeout <= 0 {
+		timeout = 2 * time.Minute
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for {
+		if healthOK(ctx, healthURL) {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("health check timed out after %s", timeout)
+		case <-ticker.C:
+		}
+	}
+}
+
+func healthOK(ctx context.Context, healthURL string) bool {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, healthURL, nil)
+	if err != nil {
+		return false
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return false
+	}
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
+	return resp.StatusCode == http.StatusOK
 }
 
 func stageErr(module, stage string, err error) error {
