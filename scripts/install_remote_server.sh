@@ -27,8 +27,8 @@ REMOTE_USER="$3"
 REMOTE_PASS="$4"
 
 SSH_DIR="/data/salt-agent/.ssh"
-PRIVATE_KEY="${SSH_DIR}/id_rsa"
-PUBLIC_KEY="${SSH_DIR}/id_rsa.pub"
+PRIVATE_KEY="${SSH_DIR}/${REMOTE_HOST}/id_rsa"
+PUBLIC_KEY="${SSH_DIR}/${REMOTE_HOST}/id_rsa.pub"
 
 echo -e "${GREEN}=========================================${NC}"
 echo -e "${GREEN}SSH 密钥自动配置脚本${NC}"
