@@ -25,10 +25,17 @@ func (c Client) EnsureRepo(ctx context.Context, repo, dir string) error {
 }
 
 func (c Client) Checkout(ctx context.Context, dir, branch string) error {
-	if err := c.Runner.Run(ctx, runner.Command{Name: "git", Args: []string{"checkout", branch}, Dir: dir}); err != nil {
+	remoteBranch := "origin/" + branch
+	if err := c.Runner.Run(ctx, runner.Command{Name: "git", Args: []string{"fetch", "origin", branch, "--prune"}, Dir: dir}); err != nil {
 		return err
 	}
-	return c.Runner.Run(ctx, runner.Command{Name: "git", Args: []string{"pull", "--ff-only"}, Dir: dir})
+	if err := c.Runner.Run(ctx, runner.Command{Name: "git", Args: []string{"checkout", "-B", branch, remoteBranch}, Dir: dir}); err != nil {
+		return err
+	}
+	if err := c.Runner.Run(ctx, runner.Command{Name: "git", Args: []string{"reset", "--hard", remoteBranch}, Dir: dir}); err != nil {
+		return err
+	}
+	return c.Runner.Run(ctx, runner.Command{Name: "git", Args: []string{"clean", "-ffd"}, Dir: dir})
 }
 
 type OutputRunner interface {
