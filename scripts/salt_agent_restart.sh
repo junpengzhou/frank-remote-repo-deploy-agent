@@ -32,13 +32,57 @@ docker stop "${MODULE_NAME}" 2>/dev/null || {
 echo "等待容器完全停止..."
 sleep 2
 
-# 2. 启动容器（失败则抛出错误）
+# 2. 启动容器（失败则抛出错误），增加防控attaching to network failed的异常，提升稳定性
 echo "[2/3] 启动容器 ${MODULE_NAME}..."
-if ! docker start "${MODULE_NAME}"; then
-    echo "错误: 容器 ${MODULE_NAME} 启动失败！"
-    exit 1
+START_OUTPUT=$(docker start "${MODULE_NAME}" 2>&1)
+START_EXIT_CODE=$?
+
+if [ $START_EXIT_CODE -ne 0 ]; then
+    # 检查是否包含网络错误信息
+    if echo "$START_OUTPUT" | grep -q "attaching to network failed"; then
+        echo "检测到网络附加错误，尝试重新连接网络..."
+        sleep 3
+        
+        # 从容器配置中获取网络名称
+        NETWORK_NAME=$(docker inspect -f '{{range $key, $value := .NetworkSettings.Networks}}{{$key}}{{end}}' "${MODULE_NAME}" 2>/dev/null | head -n 1)
+        
+        if [ -z "$NETWORK_NAME" ]; then
+            echo "错误: 无法获取容器 ${MODULE_NAME} 的网络名称！"
+            echo "原始错误: $START_OUTPUT"
+            exit 1
+        fi
+        
+        echo "检测到网络名称: ${NETWORK_NAME}"
+        
+        # 先断开网络连接（如果已连接）
+        docker network disconnect "${NETWORK_NAME}" "${MODULE_NAME}" 2>/dev/null || true
+        sleep 1
+        
+        # 重新连接到正确的网络
+        echo "执行: docker network connect ${NETWORK_NAME} ${MODULE_NAME}"
+        if docker network connect "${NETWORK_NAME}" "${MODULE_NAME}" 2>/dev/null; then
+            echo "网络连接成功，重新启动容器..."
+            sleep 1
+            
+            # 重新启动容器
+            if ! docker start "${MODULE_NAME}"; then
+                echo "错误: 容器 ${MODULE_NAME} 重新启动失败！"
+                exit 1
+            fi
+            echo "容器 ${MODULE_NAME} 启动成功"
+        else
+            echo "错误: 无法连接到网络 ${NETWORK_NAME}，容器启动失败！"
+            echo "原始错误: $START_OUTPUT"
+            exit 1
+        fi
+    else
+        echo "错误: 容器 ${MODULE_NAME} 启动失败！"
+        echo "错误信息: $START_OUTPUT"
+        exit 1
+    fi
+else
+    echo "容器 ${MODULE_NAME} 启动成功"
 fi
-echo "容器 ${MODULE_NAME} 启动成功"
 
 # 3. 验证容器状态
 echo "[3/3] 验证容器状态..."

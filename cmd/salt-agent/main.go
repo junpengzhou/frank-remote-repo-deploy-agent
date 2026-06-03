@@ -46,7 +46,7 @@ func runDeploy(args []string) error {
 	dryRun := fs.Bool("dry-run", false, "print commands without executing them")
 	debug := fs.Bool("debug", false, "print verbose deployment details")
 	followLogs := fs.Bool("tail", false, "follow remote logs after deployment")
-	tailLines := fs.Int("tail-lines", 3000, "number of remote log lines to print")
+	tailLines := fs.Int("tail-lines", 300, "number of remote log lines to print")
 	operator := fs.String("user", "", "operator name passed to module remoteScript as --user")
 	if err := fs.Parse(args); err != nil {
 		return err
