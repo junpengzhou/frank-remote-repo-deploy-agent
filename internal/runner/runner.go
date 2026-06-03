@@ -30,6 +30,7 @@ type ExecRunner struct {
 	Stdout io.Writer
 	Stderr io.Writer
 	DryRun bool
+	Debug  bool
 }
 
 func (r ExecRunner) Run(ctx context.Context, spec Command) error {
@@ -44,7 +45,9 @@ func (r ExecRunner) Run(ctx context.Context, spec Command) error {
 	if errOut == nil {
 		errOut = os.Stderr
 	}
-	_, _ = fmt.Fprintf(out, "[cmd] %s\n", spec.String())
+	if r.Debug || r.DryRun {
+		_, _ = fmt.Fprintf(out, "[cmd] %s\n", spec.String())
+	}
 	if r.DryRun {
 		// dry-run 用于在部署机上先确认 git/mvn/rsync/ssh 命令是否符合预期。
 		return nil

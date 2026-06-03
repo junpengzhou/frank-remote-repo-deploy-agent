@@ -47,6 +47,12 @@ Preview commands without running them:
 ./salt-agent deploy --config configs/agent.yaml --env test --modules example-frank --dry-run
 ```
 
+Print verbose deployment details:
+
+```bash
+./salt-agent deploy --config configs/agent.yaml --env test --modules example-frank --debug
+```
+
 ## Configuration
 
 Copy `configs/agent.example.yaml` to `configs/agent.yaml` and adjust:
@@ -68,6 +74,7 @@ Dependency-only modules only need `repo` and `packaging`. Requested deployment m
 ## Behavior
 
 - Dependency cache: stores `{module, branch, commit}` in the configured JSON cache. If the commit did not change, dependency `mvn install` is skipped.
+- Debug output: normal deploys keep verbose command and POM maintenance logs quiet. Use `--debug` to print `[cmd]`, `[pom]`, and cache skip details. `--dry-run` still prints commands because it is a command preview mode.
 - Maven safety: all Maven install steps use a cross-process directory lock to avoid concurrent writes to the same local repository.
 - Same-module preemption: starting a new deployment for the same module supersedes the older run. The older run exits at the next stage boundary.
 - Aggregator POM maintenance: after each repository checkout, the agent ensures `buildRoot/pom.xml` contains `<module>module-name</module>` and appends it to `<modules>` when missing.

@@ -44,6 +44,7 @@ func runDeploy(args []string) error {
 	modulesCSV := fs.String("modules", "", "comma-separated module names")
 	concurrency := fs.Int("concurrency", 1, "number of main modules to deploy concurrently")
 	dryRun := fs.Bool("dry-run", false, "print commands without executing them")
+	debug := fs.Bool("debug", false, "print verbose deployment details")
 	followLogs := fs.Bool("tail", false, "follow remote logs after deployment")
 	tailLines := fs.Int("tail-lines", 3000, "number of remote log lines to print")
 	operator := fs.String("user", "", "operator name passed to module remoteScript as --user")
@@ -79,9 +80,11 @@ func runDeploy(args []string) error {
 	// Salt 或用户中断进程时，context 会传递给 git/mvn/rsync/ssh 等外部命令。
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	exec := runner.ExecRunner{Stdout: os.Stdout, Stderr: os.Stderr, DryRun: *dryRun}
+	exec := runner.ExecRunner{Stdout: os.Stdout, Stderr: os.Stderr, DryRun: *dryRun, Debug: *debug}
 	deployer := deploy.New(cfg, exec, exec, store)
-	fmt.Printf("[deploy] env=%s modules=%s concurrency=%d dryRun=%v\n", *env, strings.Join(modules, ","), *concurrency, *dryRun)
+	if *debug {
+		fmt.Printf("[deploy] env=%s modules=%s concurrency=%d dryRun=%v debug=%v\n", *env, strings.Join(modules, ","), *concurrency, *dryRun, *debug)
+	}
 	return deployer.Run(ctx, deploy.Options{
 		Env:         *env,
 		Modules:     modules,
@@ -89,6 +92,7 @@ func runDeploy(args []string) error {
 		FollowLogs:  *followLogs,
 		TailLines:   *tailLines,
 		Operator:    *operator,
+		Debug:       *debug,
 	})
 }
 
@@ -98,6 +102,7 @@ func usage() error {
 
 Options:
   --concurrency N   Deploy multiple main modules concurrently.
+  --debug           Print verbose deployment details.
   --dry-run         Print external commands without running them.
   --user NAME       Append --user NAME to module remoteScript.
   --tail            Follow remote logs after restart.

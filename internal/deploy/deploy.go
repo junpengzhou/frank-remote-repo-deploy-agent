@@ -27,6 +27,7 @@ type Options struct {
 	FollowLogs  bool
 	TailLines   int
 	Operator    string
+	Debug       bool
 }
 
 type Deployer struct {
@@ -120,7 +121,7 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 		if err := git.Checkout(ctx, dir, branch); err != nil {
 			return stageErr(name, "checkout branch", err)
 		}
-		if err := d.ensurePomModule(ctx, name); err != nil {
+		if err := d.ensurePomModule(ctx, name, opts.Debug); err != nil {
 			return stageErr(name, "ensure aggregator pom module", err)
 		}
 	}
@@ -135,7 +136,9 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 			return stageErr(dep, "read git HEAD", err)
 		}
 		if !d.Cache.Changed(dep, branch, commit) {
-			fmt.Printf("[cache] %s@%s unchanged (%s), skip install\n", dep, branch, commit)
+			if opts.Debug {
+				fmt.Printf("[cache] %s@%s unchanged (%s), skip install\n", dep, branch, commit)
+			}
 			continue
 		}
 		if err := d.withMavenLock(ctx, func() error {
@@ -213,7 +216,7 @@ func (d *Deployer) withMavenLock(ctx context.Context, fn func() error) error {
 	return fn()
 }
 
-func (d *Deployer) ensurePomModule(ctx context.Context, module string) error {
+func (d *Deployer) ensurePomModule(ctx context.Context, module string, debug bool) error {
 	// 多个部署进程可能同时发现新模块，POM 更新必须加锁避免互相覆盖。
 	lease, err := d.Locks.AcquireExclusive(ctx, "pom-modules", 200*time.Millisecond)
 	if err != nil {
@@ -226,7 +229,7 @@ func (d *Deployer) ensurePomModule(ctx context.Context, module string) error {
 	if err != nil {
 		return err
 	}
-	if changed {
+	if changed && debug {
 		fmt.Printf("[pom] appended missing module %s to %s\n", module, filepath.Join(d.Config.BuildRoot, "pom.xml"))
 	}
 	return nil
