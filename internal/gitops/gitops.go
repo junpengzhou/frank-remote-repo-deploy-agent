@@ -16,7 +16,7 @@ type Client struct {
 
 func (c Client) EnsureRepo(ctx context.Context, repo, dir string) error {
 	if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
-		return c.Runner.Run(ctx, runner.Command{Name: "git", Args: []string{"fetch", "--all", "--prune"}, Dir: dir})
+		return nil
 	}
 	if err := os.MkdirAll(filepath.Dir(dir), 0o755); err != nil {
 		return err
@@ -29,13 +29,13 @@ func (c Client) Checkout(ctx context.Context, dir, branch string) error {
 	if err := c.Runner.Run(ctx, runner.Command{Name: "git", Args: []string{"fetch", "origin", branch, "--prune"}, Dir: dir}); err != nil {
 		return err
 	}
-	if err := c.Runner.Run(ctx, runner.Command{Name: "git", Args: []string{"checkout", "-B", branch, remoteBranch}, Dir: dir}); err != nil {
+	if err := c.Runner.Run(ctx, runner.Command{Name: "git", Args: []string{"checkout", "-B", branch, remoteBranch}, Dir: dir, SuppressStdout: true}); err != nil {
 		return err
 	}
 	if err := c.Runner.Run(ctx, runner.Command{Name: "git", Args: []string{"reset", "--hard", remoteBranch}, Dir: dir}); err != nil {
 		return err
 	}
-	return c.Runner.Run(ctx, runner.Command{Name: "git", Args: []string{"clean", "-ffd"}, Dir: dir})
+	return c.Runner.Run(ctx, runner.Command{Name: "git", Args: []string{"clean", "-ffd"}, Dir: dir, SuppressStdout: true})
 }
 
 type OutputRunner interface {

@@ -12,10 +12,11 @@ import (
 )
 
 type Command struct {
-	Name string
-	Args []string
-	Dir  string
-	Env  map[string]string
+	Name           string
+	Args           []string
+	Dir            string
+	Env            map[string]string
+	SuppressStdout bool
 }
 
 func (c Command) String() string {
@@ -54,7 +55,12 @@ func (r ExecRunner) Run(ctx context.Context, spec Command) error {
 	}
 	cmd := exec.CommandContext(ctx, spec.Name, spec.Args...)
 	cmd.Dir = spec.Dir
-	cmd.Stdout = out
+	// 如果配置抑制输出则进行标准输出的丢弃动作
+	if spec.SuppressStdout {
+		cmd.Stdout = io.Discard
+	} else {
+		cmd.Stdout = out
+	}
 	cmd.Stderr = errOut
 	cmd.Env = os.Environ()
 	for key, value := range spec.Env {

@@ -3,6 +3,7 @@ package runner
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -52,10 +53,30 @@ func TestExecRunnerPrintsCommandInDryRunMode(t *testing.T) {
 	}
 }
 
+func TestExecRunnerSuppressesCommandStdoutButKeepsDebugCommandLog(t *testing.T) {
+	var out bytes.Buffer
+	run := ExecRunner{Stdout: &out, Debug: true}
+	cmd := helperCommand()
+	cmd.SuppressStdout = true
+
+	err := run.Run(context.Background(), cmd)
+
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if !strings.Contains(out.String(), "[cmd] "+cmd.String()) {
+		t.Fatalf("expected command log, got %q", out.String())
+	}
+	if strings.Contains(out.String(), "helper stdout") {
+		t.Fatalf("expected helper stdout to be suppressed, got %q", out.String())
+	}
+}
+
 func TestHelperProcess(t *testing.T) {
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
 		return
 	}
+	_, _ = fmt.Fprint(os.Stdout, "helper stdout")
 	os.Exit(0)
 }
 
