@@ -261,7 +261,8 @@ func (d *Deployer) monitorStartup(ctx context.Context, module config.Module, opt
 
 	if module.LogFile == "" {
 		if err := waitForHealth(ctx, module.HealthURL, module.HealthTimeout); err != nil {
-			fmt.Println("Application status is unknown. Please check startup logs or verify the health check URL configuration.")
+			fmt.Printf("Application status is unknown. Please check startup logs or verify the health check URL configuration. healthUrl: %q, healthTimeout: %v\n",
+				module.HealthURL, module.HealthTimeout)
 			return nil
 		}
 		fmt.Println("Application started successfully, but logFile is not configured. Please check the server manually if startup logs are needed.")
@@ -293,7 +294,8 @@ func (d *Deployer) monitorStartup(ctx context.Context, module config.Module, opt
 	}
 
 	if healthErr != nil {
-		fmt.Println("Application status is unknown. Please check startup logs or verify the health check URL configuration.")
+		fmt.Printf("Application status is unknown. Please check startup logs or verify the health check URL configuration. healthUrl: %q, healthTimeout: %v\n",
+			module.HealthURL, module.HealthTimeout)
 		return nil
 	}
 	fmt.Println("Application started successfully.")
