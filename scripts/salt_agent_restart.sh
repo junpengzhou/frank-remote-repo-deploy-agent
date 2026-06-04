@@ -28,10 +28,6 @@ docker stop "${MODULE_NAME}" -t 90 2>/dev/null || {
     echo "警告: 容器 ${MODULE_NAME} 可能未运行或停止失败，继续执行..."
 }
 
-# 等待容器完全停止
-echo "等待容器完全停止..."
-sleep 2
-
 # 2. 启动容器（失败则抛出错误），增加防控attaching to network failed的异常，提升稳定性
 echo "[2/3] 启动容器 ${MODULE_NAME}..."
 START_OUTPUT=$(docker start "${MODULE_NAME}" 2>&1)
@@ -82,16 +78,6 @@ if [ $START_EXIT_CODE -ne 0 ]; then
     fi
 else
     echo "容器 ${MODULE_NAME} 启动成功"
-fi
-
-# 3. 验证容器状态
-echo "[3/3] 验证容器状态..."
-sleep 3
-if docker ps | grep -q "${MODULE_NAME}"; then
-    echo "容器 ${MODULE_NAME} 运行正常"
-else
-    echo "警告: 容器 ${MODULE_NAME} 可能未正常运行，请检查日志"
-    docker logs --tail 20 "${MODULE_NAME}"
 fi
 
 echo ""
