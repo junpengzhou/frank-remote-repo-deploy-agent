@@ -22,9 +22,9 @@ echo "========================================="
 echo "开始重启 ${MODULE_NAME} Docker 容器..."
 echo "========================================="
 
-# 1. 停止容器（忽略错误）
+# 1. 停止容器（忽略错误）,等待优雅下线时间为90秒
 echo "[1/3] 停止容器 ${MODULE_NAME}..."
-docker stop "${MODULE_NAME}" 2>/dev/null || {
+docker stop "${MODULE_NAME}" -t 90 2>/dev/null || {
     echo "警告: 容器 ${MODULE_NAME} 可能未运行或停止失败，继续执行..."
 }
 
