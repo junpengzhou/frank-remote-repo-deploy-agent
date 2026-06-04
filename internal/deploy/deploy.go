@@ -257,7 +257,7 @@ func (d *Deployer) monitorStartup(ctx context.Context, module config.Module, opt
 		if opts.TailLines <= 0 {
 			opts.TailLines = constants.DefaultTailLines
 		}
-		output.Warning("Startup health check is not configured. Please log in to the server and check the application startup status manually. Suggested command: tail -n %d %s",
+		output.Warning("Startup health check is not configured. Please log in to the server and check the application startup status manually. Suggested command: tail -fn %d %s",
 			opts.TailLines, module.LogFile)
 		return nil
 	}

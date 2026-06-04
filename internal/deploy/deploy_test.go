@@ -114,7 +114,7 @@ func TestMonitorStartupSuggestsManualCheckWhenOnlyLogFileConfigured(t *testing.T
 	if !strings.Contains(captureOutput, "\x1b[33m[WARNING]") {
 		t.Fatalf("expected yellow warning prefix, got %q", captureOutput)
 	}
-	if !strings.Contains(captureOutput, "tail -n 10 /data/logs/app.log") {
+	if !strings.Contains(captureOutput, "tail -fn 10 /data/logs/app.log") {
 		t.Fatalf("expected suggested tail command, got %q", captureOutput)
 	}
 }
