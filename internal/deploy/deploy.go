@@ -257,7 +257,7 @@ func (d *Deployer) monitorStartup(ctx context.Context, module config.Module, opt
 		if opts.TailLines <= 0 {
 			opts.TailLines = constants.DefaultTailLines
 		}
-		fmt.Printf("Startup health check is not configured. Please log in to the server and check the application startup status manually. Suggested command: tail -n %d %s\n",
+		fmt.Printf("[WARNING]Startup health check is not configured. Please log in to the server and check the application startup status manually. Suggested command: tail -n %d %s\n",
 			opts.TailLines, module.LogFile)
 		return nil
 	}
@@ -267,7 +267,7 @@ func (d *Deployer) monitorStartup(ctx context.Context, module config.Module, opt
 
 	if module.LogFile == "" {
 		if healthErr != nil {
-			fmt.Printf("Application status is unknown. Please check startup logs or verify the health check URL configuration. healthUrl: %q, healthTimeout: %v\n",
+			fmt.Printf("[WARNING]Application status is unknown. Please check startup logs or verify the health check URL configuration. healthUrl: %q, healthTimeout: %v\n",
 				module.HealthURL, module.HealthTimeout)
 			return nil
 		}
@@ -281,7 +281,7 @@ func (d *Deployer) monitorStartup(ctx context.Context, module config.Module, opt
 	}
 
 	if healthErr != nil {
-		fmt.Printf("Application status is unknown. Please check startup logs or verify the health check URL configuration. healthUrl: %q, healthTimeout: %v\n",
+		fmt.Printf("[WARNING]Application status is unknown. Please check startup logs or verify the health check URL configuration. healthUrl: %q, healthTimeout: %v\n",
 			module.HealthURL, module.HealthTimeout)
 	} else {
 		fmt.Println("Application started successfully.")
