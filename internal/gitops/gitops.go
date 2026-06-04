@@ -26,7 +26,8 @@ func (c Client) EnsureRepo(ctx context.Context, repo, dir string) error {
 
 func (c Client) Checkout(ctx context.Context, dir, branch string) error {
 	remoteBranch := "origin/" + branch
-	if err := c.Runner.Run(ctx, runner.Command{Name: "git", Args: []string{"fetch", "origin", branch, "--prune"}, Dir: dir}); err != nil {
+	refSpec := "+refs/heads/" + branch + ":refs/remotes/origin/" + branch
+	if err := c.Runner.Run(ctx, runner.Command{Name: "git", Args: []string{"fetch", "origin", refSpec, "--prune"}, Dir: dir}); err != nil {
 		return err
 	}
 	if err := c.Runner.Run(ctx, runner.Command{Name: "git", Args: []string{"checkout", "-B", branch, remoteBranch}, Dir: dir, SuppressStdout: true}); err != nil {
