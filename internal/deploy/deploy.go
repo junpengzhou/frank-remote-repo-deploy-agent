@@ -137,9 +137,7 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 			return stageErr(dep, "read git HEAD", err)
 		}
 		if !d.Cache.Changed(dep, branch, commit) {
-			if opts.Debug {
-				fmt.Printf("[cache] %s@%s unchanged (%s), skip install\n", dep, branch, commit)
-			}
+			fmt.Printf("[cache] %s@%s unchanged (%s), skip install\n", dep, branch, commit)
 			continue
 		}
 		if err := d.withMavenLock(ctx, func() error {
@@ -271,13 +269,19 @@ func (d *Deployer) monitorStartup(ctx context.Context, module config.Module, opt
 		return nil
 	}
 
+	err := d.Runner.Run(ctx, remote.TailCommand(d.Config.SSH, module.LogFile, opts.TailLines))
+	if err != nil {
+		return err
+	}
+
 	if healthErr != nil {
 		fmt.Printf("Application status is unknown. Please check startup logs or verify the health check URL configuration. healthUrl: %q, healthTimeout: %v\n",
 			module.HealthURL, module.HealthTimeout)
 	} else {
 		fmt.Println("Application started successfully.")
 	}
-	return d.Runner.Run(ctx, remote.TailCommand(d.Config.SSH, module.LogFile, opts.TailLines))
+
+	return nil
 }
 
 func waitForHealth(ctx context.Context, healthURL string, timeout time.Duration) error {
