@@ -23,13 +23,13 @@ echo "开始重启 ${MODULE_NAME} Docker 容器..."
 echo "========================================="
 
 # 1. 停止容器（忽略错误）,等待优雅下线时间为90秒
-echo "[1/3] 停止容器 ${MODULE_NAME}..."
+echo "[1/2] 停止容器 ${MODULE_NAME}..."
 docker stop "${MODULE_NAME}" -t 90 2>/dev/null || {
     echo "警告: 容器 ${MODULE_NAME} 可能未运行或停止失败，继续执行..."
 }
 
 # 2. 启动容器（失败则抛出错误），增加防控attaching to network failed的异常，提升稳定性
-echo "[2/3] 启动容器 ${MODULE_NAME}..."
+echo "[2/2] 启动容器 ${MODULE_NAME}..."
 START_OUTPUT=$(docker start "${MODULE_NAME}" 2>&1)
 START_EXIT_CODE=$?
 
