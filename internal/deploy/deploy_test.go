@@ -88,6 +88,33 @@ func TestMonitorStartupWaitsForHealthThenPrintsTail(t *testing.T) {
 	}
 }
 
+func TestMonitorStartupSuggestsManualCheckWhenOnlyLogFileConfigured(t *testing.T) {
+	run := &recordingRunner{}
+	d := &Deployer{
+		Config: &config.Config{SSH: config.SSHConfig{User: "root", Host: "127.0.0.1"}},
+		Runner: run,
+	}
+
+	output := captureStdout(t, func() {
+		err := d.monitorStartup(context.Background(), config.Module{
+			LogFile: "/data/logs/app.log",
+		}, Options{TailLines: 10})
+		if err != nil {
+			t.Fatalf("monitorStartup returned error: %v", err)
+		}
+	})
+
+	if len(run.commands) != 0 {
+		t.Fatalf("expected no tail command, got %#v", run.commands)
+	}
+	if !strings.Contains(output, "Startup health check is not configured") {
+		t.Fatalf("expected manual startup check message, got %q", output)
+	}
+	if !strings.Contains(output, "tail -n 10 /data/logs/app.log") {
+		t.Fatalf("expected suggested tail command, got %q", output)
+	}
+}
+
 func TestMonitorStartupPrintsSuccessWhenHealthHasNoLogFile(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

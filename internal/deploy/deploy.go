@@ -12,6 +12,7 @@ import (
 
 	"frank-remote-repo-deploy-agent/internal/cache"
 	"frank-remote-repo-deploy-agent/internal/config"
+	"frank-remote-repo-deploy-agent/internal/constants"
 	"frank-remote-repo-deploy-agent/internal/gitops"
 	"frank-remote-repo-deploy-agent/internal/lock"
 	"frank-remote-repo-deploy-agent/internal/maven"
@@ -253,7 +254,12 @@ func (d *Deployer) monitorStartup(ctx context.Context, module config.Module, opt
 		if module.LogFile == "" {
 			return nil
 		}
-		return d.Runner.Run(ctx, remote.TailCommand(d.Config.SSH, module.LogFile, opts.TailLines))
+		if opts.TailLines <= 0 {
+			opts.TailLines = constants.DefaultTailLines
+		}
+		fmt.Printf("Startup health check is not configured. Please log in to the server and check the application startup status manually. Suggested command: tail -n %d %s\n",
+			opts.TailLines, module.LogFile)
+		return nil
 	}
 
 	fmt.Printf("Waiting for application startup. healthUrl: %q, healthTimeout: %v\n", module.HealthURL, module.HealthTimeout)

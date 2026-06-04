@@ -11,6 +11,7 @@ import (
 
 	"frank-remote-repo-deploy-agent/internal/cache"
 	"frank-remote-repo-deploy-agent/internal/config"
+	"frank-remote-repo-deploy-agent/internal/constants"
 	"frank-remote-repo-deploy-agent/internal/deploy"
 	"frank-remote-repo-deploy-agent/internal/runner"
 )
@@ -45,7 +46,7 @@ func runDeploy(args []string) error {
 	concurrency := fs.Int("concurrency", 1, "number of main modules to deploy concurrently")
 	dryRun := fs.Bool("dry-run", false, "print commands without executing them")
 	debug := fs.Bool("debug", false, "print verbose deployment details")
-	tailLines := fs.Int("tail-lines", 300, "number of remote log lines to print")
+	tailLines := fs.Int("tail-lines", constants.DefaultTailLines, "number of remote log lines to print")
 	operator := fs.String("user", "", "operator name passed to module remoteScript as --user")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -95,13 +96,14 @@ func runDeploy(args []string) error {
 }
 
 func usage() error {
-	_, _ = fmt.Fprintln(os.Stderr, `Usage:
+	_, _ = fmt.Fprintf(os.Stderr, `Usage:
   salt-agent deploy --config configs/agent.yaml --env test --modules demo1[,demo2]
 
 Options:
   --concurrency N   Deploy multiple main modules concurrently.
   --dry-run         Print external commands without running them.
   --user NAME       Append --user NAME to module remoteScript.
-  --tail-lines N    Number of log lines to print, default 300.`)
+  --tail-lines N    Number of log lines to print, default %d.
+`, constants.DefaultTailLines)
 	return nil
 }

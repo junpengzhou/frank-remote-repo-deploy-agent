@@ -82,5 +82,5 @@ Dependency-only modules only need `repo` and `packaging`. Requested deployment m
 - Same-module preemption: starting a new deployment for the same module supersedes the older run. The older run exits at the next stage boundary.
 - Aggregator POM maintenance: after each repository checkout, the agent ensures `buildRoot/pom.xml` contains `<module>module-name</module>` and appends it to `<modules>` when missing.
 - Remote sync: WAR files are extracted locally, then synchronized with `rsync --delete` so removed classes and files are also removed remotely.
-- Logs: remote logs are printed once with `tail -n` after restart. Use `--tail-lines` to control the line count.
+- Logs: when `healthUrl` is not configured, remote logs are not tailed automatically. The agent prints an English suggestion so operators can log in to the server and check startup status manually.
 - Health checks: when `healthUrl` is configured, the agent prints an English startup wait message, polls until HTTP 200 or `healthTimeout`, then prints remote logs once with `tail -n` if `logFile` is configured. If `healthUrl` is configured without `logFile`, success prints an English message indicating the app started and that logs are not configured; timeout prints an English unknown-status message.
