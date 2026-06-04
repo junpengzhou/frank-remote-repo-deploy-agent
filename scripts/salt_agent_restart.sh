@@ -85,20 +85,4 @@ echo "========================================="
 echo "容器 ${MODULE_NAME} 重启完成！"
 echo "========================================="
 
-# 4. 推送更新通知到 Teams
-NOTIFY_SCRIPT="/prosh/salt-agent/notify/notify_teams_webhooks.py"
-NOTIFY_CONFIG="/prosh/salt-agent/notify/settings.json"
-
-if [ -f "$NOTIFY_SCRIPT" ] && [ -f "$NOTIFY_CONFIG" ]; then
-    echo "推送更新通知到 Teams..."
-    cd /prosh/salt-agent/ || exit
-    python3 "$NOTIFY_SCRIPT" \
-        --modules "${MODULE_NAME}" \
-        --show-all-containers \
-        --config "$NOTIFY_CONFIG"
-    echo "通知推送完成"
-else
-    echo "跳过通知推送（通知脚本或配置文件不存在）"
-fi
-
 exit 0
