@@ -26,7 +26,7 @@ REMOTE_PORT="$2"
 REMOTE_USER="$3"
 REMOTE_PASS="$4"
 
-SSH_DIR="/data/salt-agent/.ssh/${REMOTE_HOST}"
+SSH_DIR="/data/salt-agent/.ssh"
 PRIVATE_KEY="${SSH_DIR}/id_rsa"
 PUBLIC_KEY="${SSH_DIR}/id_rsa.pub"
 
