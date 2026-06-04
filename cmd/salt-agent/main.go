@@ -6,19 +6,19 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
 	"frank-remote-repo-deploy-agent/internal/cache"
 	"frank-remote-repo-deploy-agent/internal/config"
 	"frank-remote-repo-deploy-agent/internal/constants"
 	"frank-remote-repo-deploy-agent/internal/deploy"
+	"frank-remote-repo-deploy-agent/internal/output"
 	"frank-remote-repo-deploy-agent/internal/runner"
 )
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "salt-agent: %v\n", err)
+		output.Error("salt-agent: %v", err)
 		os.Exit(1)
 	}
 }
@@ -80,18 +80,16 @@ func runDeploy(args []string) error {
 	// Salt 或用户中断进程时，context 会传递给 git/mvn/rsync/ssh 等外部命令。
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	output.SetDebug(*debug)
 	exec := runner.ExecRunner{Stdout: os.Stdout, Stderr: os.Stderr, DryRun: *dryRun, Debug: *debug}
 	deployer := deploy.New(cfg, exec, exec, store)
-	if *debug {
-		fmt.Printf("[deploy] env=%s modules=%s concurrency=%d dryRun=%v debug=%v\n", *env, strings.Join(modules, ","), *concurrency, *dryRun, *debug)
-	}
+	output.Debug("deploy env=%s modules=%v concurrency=%d dryRun=%v debug=%v", *env, modules, *concurrency, *dryRun, *debug)
 	return deployer.Run(ctx, deploy.Options{
 		Env:         *env,
 		Modules:     modules,
 		Concurrency: *concurrency,
 		TailLines:   *tailLines,
 		Operator:    *operator,
-		Debug:       *debug,
 	})
 }
 

@@ -16,6 +16,7 @@ import (
 	"frank-remote-repo-deploy-agent/internal/gitops"
 	"frank-remote-repo-deploy-agent/internal/lock"
 	"frank-remote-repo-deploy-agent/internal/maven"
+	"frank-remote-repo-deploy-agent/internal/output"
 	"frank-remote-repo-deploy-agent/internal/packagex"
 	"frank-remote-repo-deploy-agent/internal/pomxml"
 	"frank-remote-repo-deploy-agent/internal/remote"
@@ -29,7 +30,6 @@ type Options struct {
 	Concurrency int
 	TailLines   int
 	Operator    string
-	Debug       bool
 }
 
 type Deployer struct {
@@ -123,7 +123,7 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 		if err := git.Checkout(ctx, dir, branch); err != nil {
 			return stageErr(name, "checkout branch", err)
 		}
-		if err := d.ensurePomModule(ctx, name, opts.Debug); err != nil {
+		if err := d.ensurePomModule(ctx, name); err != nil {
 			return stageErr(name, "ensure aggregator pom module", err)
 		}
 	}
@@ -138,7 +138,7 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 			return stageErr(dep, "read git HEAD", err)
 		}
 		if !d.Cache.Changed(dep, branch, commit) {
-			fmt.Printf("[cache] %s@%s unchanged (%s), skip install\n", dep, branch, commit)
+			output.Info("cache hit %s@%s unchanged (%s), skip install", dep, branch, commit)
 			continue
 		}
 		if err := d.withMavenLock(ctx, func() error {
@@ -214,7 +214,7 @@ func (d *Deployer) withMavenLock(ctx context.Context, fn func() error) error {
 	return fn()
 }
 
-func (d *Deployer) ensurePomModule(ctx context.Context, module string, debug bool) error {
+func (d *Deployer) ensurePomModule(ctx context.Context, module string) error {
 	// 多个部署进程可能同时发现新模块，POM 更新必须加锁避免互相覆盖。
 	lease, err := d.Locks.AcquireExclusive(ctx, "pom-modules", 200*time.Millisecond)
 	if err != nil {
@@ -227,8 +227,8 @@ func (d *Deployer) ensurePomModule(ctx context.Context, module string, debug boo
 	if err != nil {
 		return err
 	}
-	if changed && debug {
-		fmt.Printf("[pom] appended missing module %s to %s\n", module, filepath.Join(d.Config.BuildRoot, "pom.xml"))
+	if changed {
+		output.Debug("pom appended missing module %s to %s", module, filepath.Join(d.Config.BuildRoot, "pom.xml"))
 	}
 	return nil
 }
@@ -257,21 +257,21 @@ func (d *Deployer) monitorStartup(ctx context.Context, module config.Module, opt
 		if opts.TailLines <= 0 {
 			opts.TailLines = constants.DefaultTailLines
 		}
-		fmt.Printf("[WARNING]Startup health check is not configured. Please log in to the server and check the application startup status manually. Suggested command: tail -n %d %s\n",
+		output.Warning("Startup health check is not configured. Please log in to the server and check the application startup status manually. Suggested command: tail -n %d %s",
 			opts.TailLines, module.LogFile)
 		return nil
 	}
 
-	fmt.Printf("Waiting for application startup. healthUrl: %q, healthTimeout: %v\n", module.HealthURL, module.HealthTimeout)
+	output.Info("Waiting for application startup. healthUrl: %q, healthTimeout: %v", module.HealthURL, module.HealthTimeout)
 	healthErr := waitForHealth(ctx, module.HealthURL, module.HealthTimeout)
 
 	if module.LogFile == "" {
 		if healthErr != nil {
-			fmt.Printf("[WARNING]Application status is unknown. Please check startup logs or verify the health check URL configuration. healthUrl: %q, healthTimeout: %v\n",
+			output.Warning("Application status is unknown. Please check startup logs or verify the health check URL configuration. healthUrl: %q, healthTimeout: %v",
 				module.HealthURL, module.HealthTimeout)
 			return nil
 		}
-		fmt.Println("Application started successfully, but logFile is not configured. Please check the server manually if startup logs are needed.")
+		output.Success("Application started successfully, but logFile is not configured. Please check the server manually if startup logs are needed.")
 		return nil
 	}
 
@@ -281,10 +281,10 @@ func (d *Deployer) monitorStartup(ctx context.Context, module config.Module, opt
 	}
 
 	if healthErr != nil {
-		fmt.Printf("[WARNING]Application status is unknown. Please check startup logs or verify the health check URL configuration. healthUrl: %q, healthTimeout: %v\n",
+		output.Warning("Application status is unknown. Please check startup logs or verify the health check URL configuration. healthUrl: %q, healthTimeout: %v",
 			module.HealthURL, module.HealthTimeout)
 	} else {
-		fmt.Println("Application started successfully.")
+		output.Success("Application started successfully.")
 	}
 
 	return nil

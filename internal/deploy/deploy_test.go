@@ -14,17 +14,18 @@ import (
 
 	"frank-remote-repo-deploy-agent/internal/config"
 	"frank-remote-repo-deploy-agent/internal/lock"
+	"frank-remote-repo-deploy-agent/internal/output"
 	"frank-remote-repo-deploy-agent/internal/runner"
 )
 
 func TestEnsurePomModuleOnlyPrintsPomLogInDebugMode(t *testing.T) {
 	defaultOutput := ensurePomModuleOutput(t, false, "example-default")
-	if strings.Contains(defaultOutput, "[pom]") {
+	if strings.Contains(defaultOutput, "pom appended missing module") {
 		t.Fatalf("expected no pom log without debug, got %q", defaultOutput)
 	}
 
 	debugOutput := ensurePomModuleOutput(t, true, "example-debug")
-	if !strings.Contains(debugOutput, "[pom] appended missing module example-debug") {
+	if !strings.Contains(debugOutput, "\x1b[36m[DEBUG]pom appended missing module example-debug") {
 		t.Fatalf("expected pom log in debug mode, got %q", debugOutput)
 	}
 }
@@ -66,7 +67,7 @@ func TestMonitorStartupWaitsForHealthThenPrintsTail(t *testing.T) {
 		Runner: run,
 	}
 
-	output := captureStdout(t, func() {
+	captureOutput := captureStdout(t, func() {
 		err := d.monitorStartup(context.Background(), config.Module{
 			LogFile:       "/data/logs/app.log",
 			HealthURL:     server.URL,
@@ -77,8 +78,8 @@ func TestMonitorStartupWaitsForHealthThenPrintsTail(t *testing.T) {
 		}
 	})
 
-	if !strings.Contains(output, "Waiting for application startup") {
-		t.Fatalf("expected startup wait message, got %q", output)
+	if !strings.Contains(captureOutput, "Waiting for application startup") {
+		t.Fatalf("expected startup wait message, got %q", captureOutput)
 	}
 	if len(run.commands) != 1 {
 		t.Fatalf("expected one tail command, got %#v", run.commands)
@@ -95,7 +96,7 @@ func TestMonitorStartupSuggestsManualCheckWhenOnlyLogFileConfigured(t *testing.T
 		Runner: run,
 	}
 
-	output := captureStdout(t, func() {
+	captureOutput := captureStdout(t, func() {
 		err := d.monitorStartup(context.Background(), config.Module{
 			LogFile: "/data/logs/app.log",
 		}, Options{TailLines: 10})
@@ -107,11 +108,14 @@ func TestMonitorStartupSuggestsManualCheckWhenOnlyLogFileConfigured(t *testing.T
 	if len(run.commands) != 0 {
 		t.Fatalf("expected no tail command, got %#v", run.commands)
 	}
-	if !strings.Contains(output, "Startup health check is not configured") {
-		t.Fatalf("expected manual startup check message, got %q", output)
+	if !strings.Contains(captureOutput, "Startup health check is not configured") {
+		t.Fatalf("expected manual startup check message, got %q", captureOutput)
 	}
-	if !strings.Contains(output, "tail -n 10 /data/logs/app.log") {
-		t.Fatalf("expected suggested tail command, got %q", output)
+	if !strings.Contains(captureOutput, "\x1b[33m[WARNING]") {
+		t.Fatalf("expected yellow warning prefix, got %q", captureOutput)
+	}
+	if !strings.Contains(captureOutput, "tail -n 10 /data/logs/app.log") {
+		t.Fatalf("expected suggested tail command, got %q", captureOutput)
 	}
 }
 
@@ -122,7 +126,7 @@ func TestMonitorStartupPrintsSuccessWhenHealthHasNoLogFile(t *testing.T) {
 	defer server.Close()
 	d := &Deployer{}
 
-	output := captureStdout(t, func() {
+	captureOutput := captureStdout(t, func() {
 		err := d.monitorStartup(context.Background(), config.Module{
 			HealthURL:     server.URL,
 			HealthTimeout: 100 * time.Millisecond,
@@ -132,13 +136,18 @@ func TestMonitorStartupPrintsSuccessWhenHealthHasNoLogFile(t *testing.T) {
 		}
 	})
 
-	if !strings.Contains(output, "Application started successfully, but logFile is not configured") {
-		t.Fatalf("expected no-log success message, got %q", output)
+	if !strings.Contains(captureOutput, "Application started successfully, but logFile is not configured") {
+		t.Fatalf("expected no-log success message, got %q", captureOutput)
 	}
 }
 
 func ensurePomModuleOutput(t *testing.T, debug bool, module string) string {
 	t.Helper()
+	output.SetDebug(debug)
+	t.Cleanup(func() {
+		output.SetDebug(false)
+	})
+
 	root := t.TempDir()
 	if err := os.WriteFile(filepath.Join(root, "pom.xml"), []byte(`<project><modules></modules></project>`), 0o600); err != nil {
 		t.Fatal(err)
@@ -150,7 +159,7 @@ func ensurePomModuleOutput(t *testing.T, debug bool, module string) string {
 	d.Locks = lock.NewManager(d.Config.LockDir)
 
 	return captureStdout(t, func() {
-		if err := d.ensurePomModule(context.Background(), module, debug); err != nil {
+		if err := d.ensurePomModule(context.Background(), module); err != nil {
 			t.Fatalf("ensurePomModule returned error: %v", err)
 		}
 	})
