@@ -23,15 +23,11 @@ func DockerRestartCommand(ssh config.SSHConfig, container string) runner.Command
 	return sshCommand(ssh, "docker restart "+shellQuote(container))
 }
 
-func TailCommand(ssh config.SSHConfig, logFile string, follow bool, lines int) runner.Command {
+func TailCommand(ssh config.SSHConfig, logFile string, lines int) runner.Command {
 	if lines <= 0 {
-		lines = 3000
+		lines = 300
 	}
-	flag := "-n"
-	if follow {
-		flag = "-fn"
-	}
-	return sshCommand(ssh, fmt.Sprintf("tail %s %d %s", flag, lines, shellQuote(logFile)))
+	return sshCommand(ssh, fmt.Sprintf("tail -n %d %s", lines, shellQuote(logFile)))
 }
 
 func sshCommand(ssh config.SSHConfig, remoteCommand string) runner.Command {

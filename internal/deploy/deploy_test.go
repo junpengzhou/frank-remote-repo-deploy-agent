@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -56,30 +55,36 @@ func TestWaitForHealthTimesOutUntilHTTP200(t *testing.T) {
 	}
 }
 
-func TestMonitorStartupCancelsTailWhenHealthSucceeds(t *testing.T) {
+func TestMonitorStartupWaitsForHealthThenPrintsTail(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
-	run := &blockingTailRunner{started: make(chan struct{}), done: make(chan struct{})}
+	run := &recordingRunner{}
 	d := &Deployer{
 		Config: &config.Config{SSH: config.SSHConfig{User: "root", Host: "127.0.0.1"}},
 		Runner: run,
 	}
 
-	err := d.monitorStartup(context.Background(), config.Module{
-		LogFile:       "/data/logs/app.log",
-		HealthURL:     server.URL,
-		HealthTimeout: 100 * time.Millisecond,
-	}, Options{TailLines: 10})
+	output := captureStdout(t, func() {
+		err := d.monitorStartup(context.Background(), config.Module{
+			LogFile:       "/data/logs/app.log",
+			HealthURL:     server.URL,
+			HealthTimeout: 100 * time.Millisecond,
+		}, Options{TailLines: 10})
+		if err != nil {
+			t.Fatalf("monitorStartup returned error: %v", err)
+		}
+	})
 
-	if err != nil {
-		t.Fatalf("monitorStartup returned error: %v", err)
+	if !strings.Contains(output, "Waiting for application startup") {
+		t.Fatalf("expected startup wait message, got %q", output)
 	}
-	select {
-	case <-run.done:
-	case <-time.After(time.Second):
-		t.Fatal("tail command was not canceled after health success")
+	if len(run.commands) != 1 {
+		t.Fatalf("expected one tail command, got %#v", run.commands)
+	}
+	if got := run.commands[0].Args[len(run.commands[0].Args)-1]; got != "tail -n 10 '/data/logs/app.log'" {
+		t.Fatalf("expected non-follow tail command, got %q", got)
 	}
 }
 
@@ -151,21 +156,11 @@ func captureStdout(t *testing.T, fn func()) string {
 	return out.String()
 }
 
-type blockingTailRunner struct {
-	mu      sync.Mutex
-	started chan struct{}
-	done    chan struct{}
-	closed  bool
+type recordingRunner struct {
+	commands []runner.Command
 }
 
-func (r *blockingTailRunner) Run(ctx context.Context, _ runner.Command) error {
-	r.mu.Lock()
-	if !r.closed {
-		close(r.started)
-		r.closed = true
-	}
-	r.mu.Unlock()
-	<-ctx.Done()
-	close(r.done)
-	return ctx.Err()
+func (r *recordingRunner) Run(_ context.Context, cmd runner.Command) error {
+	r.commands = append(r.commands, cmd)
+	return nil
 }

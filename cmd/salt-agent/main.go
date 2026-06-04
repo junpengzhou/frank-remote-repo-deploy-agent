@@ -45,7 +45,6 @@ func runDeploy(args []string) error {
 	concurrency := fs.Int("concurrency", 1, "number of main modules to deploy concurrently")
 	dryRun := fs.Bool("dry-run", false, "print commands without executing them")
 	debug := fs.Bool("debug", false, "print verbose deployment details")
-	followLogs := fs.Bool("tail", false, "follow remote logs after deployment")
 	tailLines := fs.Int("tail-lines", 300, "number of remote log lines to print")
 	operator := fs.String("user", "", "operator name passed to module remoteScript as --user")
 	if err := fs.Parse(args); err != nil {
@@ -89,7 +88,6 @@ func runDeploy(args []string) error {
 		Env:         *env,
 		Modules:     modules,
 		Concurrency: *concurrency,
-		FollowLogs:  *followLogs,
 		TailLines:   *tailLines,
 		Operator:    *operator,
 		Debug:       *debug,
@@ -102,10 +100,8 @@ func usage() error {
 
 Options:
   --concurrency N   Deploy multiple main modules concurrently.
-  --debug           Print verbose deployment details.
   --dry-run         Print external commands without running them.
   --user NAME       Append --user NAME to module remoteScript.
-  --tail            Follow remote logs after restart.
-  --tail-lines N    Number of log lines to print, default 3000.`)
+  --tail-lines N    Number of log lines to print, default 300.`)
 	return nil
 }

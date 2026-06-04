@@ -22,9 +22,9 @@ func TestScriptCommandAppendsOperatorUser(t *testing.T) {
 	}
 }
 
-func TestTailCommandCanFollowLast3000Lines(t *testing.T) {
-	cmd := TailCommand(config.SSHConfig{User: "root", Host: "10.0.0.1"}, "/data/logs/catalina.out", true, 3000)
-	want := []string{"-p", "22", "root@10.0.0.1", "tail -fn 3000 '/data/logs/catalina.out'"}
+func TestTailCommandPrintsLast3000Lines(t *testing.T) {
+	cmd := TailCommand(config.SSHConfig{User: "root", Host: "10.0.0.1"}, "/data/logs/catalina.out", 3000)
+	want := []string{"-p", "22", "root@10.0.0.1", "tail -n 3000 '/data/logs/catalina.out'"}
 	if !equal(cmd.Args, want) {
 		t.Fatalf("args mismatch\nwant %#v\n got %#v", want, cmd.Args)
 	}

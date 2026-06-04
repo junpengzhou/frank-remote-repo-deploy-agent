@@ -26,7 +26,6 @@ type Options struct {
 	Env         string
 	Modules     []string
 	Concurrency int
-	FollowLogs  bool
 	TailLines   int
 	Operator    string
 	Debug       bool
@@ -256,11 +255,14 @@ func (d *Deployer) monitorStartup(ctx context.Context, module config.Module, opt
 		if module.LogFile == "" {
 			return nil
 		}
-		return d.Runner.Run(ctx, remote.TailCommand(d.Config.SSH, module.LogFile, opts.FollowLogs, opts.TailLines))
+		return d.Runner.Run(ctx, remote.TailCommand(d.Config.SSH, module.LogFile, opts.TailLines))
 	}
 
+	fmt.Printf("Waiting for application startup. healthUrl: %q, healthTimeout: %v\n", module.HealthURL, module.HealthTimeout)
+	healthErr := waitForHealth(ctx, module.HealthURL, module.HealthTimeout)
+
 	if module.LogFile == "" {
-		if err := waitForHealth(ctx, module.HealthURL, module.HealthTimeout); err != nil {
+		if healthErr != nil {
 			fmt.Printf("Application status is unknown. Please check startup logs or verify the health check URL configuration. healthUrl: %q, healthTimeout: %v\n",
 				module.HealthURL, module.HealthTimeout)
 			return nil
@@ -269,37 +271,13 @@ func (d *Deployer) monitorStartup(ctx context.Context, module config.Module, opt
 		return nil
 	}
 
-	tailCtx, cancelTail := context.WithCancel(ctx)
-	defer cancelTail()
-	tailDone := make(chan error, 1)
-	go func() {
-		tailDone <- d.Runner.Run(tailCtx, remote.TailCommand(d.Config.SSH, module.LogFile, true, opts.TailLines))
-	}()
-
-	healthDone := make(chan error, 1)
-	go func() {
-		healthDone <- waitForHealth(ctx, module.HealthURL, module.HealthTimeout)
-	}()
-
-	var healthErr error
-	select {
-	case healthErr = <-healthDone:
-		cancelTail()
-		<-tailDone
-	case tailErr := <-tailDone:
-		if tailErr != nil && opts.Debug {
-			fmt.Printf("[tail] log monitoring ended before health check completed: %v\n", tailErr)
-		}
-		healthErr = <-healthDone
-	}
-
 	if healthErr != nil {
 		fmt.Printf("Application status is unknown. Please check startup logs or verify the health check URL configuration. healthUrl: %q, healthTimeout: %v\n",
 			module.HealthURL, module.HealthTimeout)
-		return nil
+	} else {
+		fmt.Println("Application started successfully.")
 	}
-	fmt.Println("Application started successfully.")
-	return nil
+	return d.Runner.Run(ctx, remote.TailCommand(d.Config.SSH, module.LogFile, opts.TailLines))
 }
 
 func waitForHealth(ctx context.Context, healthURL string, timeout time.Duration) error {
