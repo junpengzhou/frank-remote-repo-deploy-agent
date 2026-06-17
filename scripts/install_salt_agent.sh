@@ -1,30 +1,22 @@
 #!/bin/bash
+set -euo pipefail
 
-# 1. 定义Salt-Agent路径
-SALT_AGENT_HOME="/data/salt-agent"
+SALT_AGENT_HOME="${SALT_AGENT_HOME:-/data/salt-agent}"
+PROFILE_FILE="/etc/profile.d/salt-agent.sh"
 
-# 2. 检查salt-agent是否已经可以直接执行
-if command -v salt-agent &> /dev/null; then
-    echo "salt-agent is already installed and available."
-    salt-agent --version || salt-agent -v || echo "salt-agent version unknown"
-    exit 0
+mkdir -p "${SALT_AGENT_HOME}" "${SALT_AGENT_HOME}/scripts"
+
+profile_content="export SALT_AGENT_HOME=${SALT_AGENT_HOME}
+export PATH=\$PATH:\$SALT_AGENT_HOME:\$SALT_AGENT_HOME/scripts"
+
+if command -v sudo >/dev/null 2>&1; then
+  printf '%s\n' "${profile_content}" | sudo tee "${PROFILE_FILE}" >/dev/null
+else
+  printf '%s\n' "${profile_content}" > "${PROFILE_FILE}"
 fi
 
-# 3. 一键配置环境变量
-echo "export SALT_AGENT_HOME=${SALT_AGENT_HOME}" | sudo tee /etc/profile.d/salt-agent.sh
-echo "export PATH=\$PATH:\$SALT_AGENT_HOME" | sudo tee -a /etc/profile.d/salt-agent.sh
+chmod -R a+rx "${SALT_AGENT_HOME}/scripts" 2>/dev/null || true
 
-# 4. 提供用户指引
-echo ""
-echo "========================================="
-echo "Salt-Agent environment configured successfully!"
-echo "========================================="
-echo ""
-echo "Environment variables have been configured in:"
-echo "  /etc/profile.d/salt-agent.sh"
-echo ""
-echo "To use Salt-Agent immediately, please run:"
-echo "  source /etc/profile.d/salt-agent.sh"
-echo ""
-echo "Or simply log out and log back in."
-echo "========================================="
+echo "Salt-Agent environment configured successfully."
+echo "SALT_AGENT_HOME=${SALT_AGENT_HOME}"
+echo "Profile file: ${PROFILE_FILE}"

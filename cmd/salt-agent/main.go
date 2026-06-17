@@ -13,6 +13,7 @@ import (
 	"frank-remote-repo-deploy-agent/internal/constants"
 	"frank-remote-repo-deploy-agent/internal/deploy"
 	"frank-remote-repo-deploy-agent/internal/output"
+	registerx "frank-remote-repo-deploy-agent/internal/register"
 	"frank-remote-repo-deploy-agent/internal/runner"
 )
 
@@ -30,11 +31,92 @@ func run(args []string) error {
 	switch args[0] {
 	case "deploy":
 		return runDeploy(args[1:])
+	case "register":
+		return runRegister(args[1:])
 	case "-h", "--help", "help":
 		return usage()
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}
+}
+
+type registerCLIOptions struct {
+	registerx.Options
+	DryRun bool
+	Debug  bool
+}
+
+func parseRegisterOptions(args []string) (registerCLIOptions, error) {
+	fs := flag.NewFlagSet("register", flag.ContinueOnError)
+	sshDir := fs.String("ssh-dir", "", "local SSH directory")
+	host := fs.String("host", "", "remote server host")
+	port := fs.Int("port", 22, "remote SSH port")
+	user := fs.String("user", "", "remote SSH user")
+	password := fs.String("password", "", "remote SSH password")
+	remotePath := fs.String("remote-path", "", "remote salt-agent path")
+	scriptsDir := fs.String("scripts-dir", "scripts", "local scripts directory to sync")
+	dryRun := fs.Bool("dry-run", false, "print register actions without connecting")
+	debug := fs.Bool("debug", false, "print verbose register details")
+	if err := fs.Parse(args); err != nil {
+		return registerCLIOptions{}, err
+	}
+	opts := registerCLIOptions{
+		Options: registerx.Options{
+			SSHDir:     *sshDir,
+			Host:       *host,
+			Port:       *port,
+			User:       *user,
+			Password:   *password,
+			RemotePath: *remotePath,
+			ScriptsDir: *scriptsDir,
+		},
+		DryRun: *dryRun,
+		Debug:  *debug,
+	}
+	if opts.SSHDir == "" {
+		return registerCLIOptions{}, fmt.Errorf("--ssh-dir is required")
+	}
+	if opts.Host == "" {
+		return registerCLIOptions{}, fmt.Errorf("--host is required")
+	}
+	if opts.User == "" {
+		return registerCLIOptions{}, fmt.Errorf("--user is required")
+	}
+	if opts.Password == "" {
+		return registerCLIOptions{}, fmt.Errorf("--password is required")
+	}
+	if opts.RemotePath == "" {
+		return registerCLIOptions{}, fmt.Errorf("--remote-path is required")
+	}
+	return opts, nil
+}
+
+func runRegister(args []string) error {
+	opts, err := parseRegisterOptions(args)
+	if err != nil {
+		return err
+	}
+	output.SetDebug(opts.Debug)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	var client registerx.Client
+	if opts.DryRun {
+		client = registerx.NewDryRunClient(os.Stdout)
+	} else {
+		client, err = registerx.NewNativeClient(ctx, registerx.NativeOptions{
+			SSHDir:   opts.SSHDir,
+			Host:     opts.Host,
+			Port:     opts.Port,
+			User:     opts.User,
+			Password: opts.Password,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	output.Debug("register host=%s port=%d user=%s remotePath=%s scriptsDir=%s dryRun=%v", opts.Host, opts.Port, opts.User, opts.RemotePath, opts.ScriptsDir, opts.DryRun)
+	return registerx.Registrar{Client: client}.Run(ctx, opts.Options)
 }
 
 func runDeploy(args []string) error {
@@ -94,14 +176,14 @@ func runDeploy(args []string) error {
 }
 
 func usage() error {
-	_, _ = fmt.Fprintf(os.Stderr, `Usage:
-  salt-agent deploy --config configs/agent.yaml --env test --modules demo1[,demo2]
-
-Options:
-  --concurrency N   Deploy multiple main modules concurrently.
-  --dry-run         Print external commands without running them.
-  --user NAME       Append --user NAME to module remoteScript.
-  --tail-lines N    Number of log lines to print, default %d.
-`, constants.DefaultTailLines)
+	_, _ = fmt.Fprintf(os.Stderr, "Usage:\n"+
+		"  salt-agent deploy --config configs/agent.yaml --env test --modules demo1[,demo2]\n"+
+		"  salt-agent register --ssh-dir ~/.ssh --host 10.0.0.1 --port 22 --user root --password secret --remote-path /data/salt-agent\n"+
+		"\n"+
+		"Options:\n"+
+		"  --concurrency N   Deploy multiple main modules concurrently.\n"+
+		"  --dry-run         Print external commands without running them.\n"+
+		"  --user NAME       Append --user NAME to module remoteScript.\n"+
+		"  --tail-lines N    Number of log lines to print, default %d.\n", constants.DefaultTailLines)
 	return nil
 }

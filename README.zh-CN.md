@@ -1,5 +1,23 @@
 # Salt Agent CLI
 
+## Register Remote Server
+
+Register a remote server and sync the built-in `scripts/` directory:
+
+```bash
+./salt-agent register \
+  --ssh-dir ~/.ssh \
+  --host 10.0.0.1 \
+  --port 22 \
+  --user root \
+  --password 'secret' \
+  --remote-path /data/salt-agent
+```
+
+The register command uses native Go SSH/SFTP with password authentication. It creates the remote salt-agent directory, configures `SALT_AGENT_HOME` and `PATH` through `/etc/profile.d/salt-agent.sh`, uploads every file under local `scripts/` to `<remote-path>/scripts/`, and grants executable permissions to the synced scripts.
+
+Use `--scripts-dir` when scripts live somewhere other than `scripts/`. Use `--dry-run` to preview the generated register actions without connecting.
+
 语言：[English](README.md) | [中文](README.zh-CN.md)
 
 `salt-agent` 是一个面向 Salt 风格 Java 发布流程的一次性 Go CLI。它会拉取配置好的代码仓库，切换到目标环境分支，按 Maven 缓存判断构建发生变化的依赖模块，构建本次请求发布的主模块，准备 staging 目录，通过 `rsync --delete` 同步到远端主机，重启远端服务，并按配置查看远端日志。

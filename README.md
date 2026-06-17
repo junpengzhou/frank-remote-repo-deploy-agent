@@ -48,6 +48,24 @@ Preview commands without running them:
 ./salt-agent deploy --config configs/agent.yaml --env test --modules example-frank --dry-run
 ```
 
+## Register Remote Server
+
+Register a remote server and sync the built-in `scripts/` directory:
+
+```bash
+./salt-agent register \
+  --ssh-dir ~/.ssh \
+  --host 10.0.0.1 \
+  --port 22 \
+  --user root \
+  --password 'secret' \
+  --remote-path /data/salt-agent
+```
+
+The register command uses native Go SSH/SFTP with password authentication. It creates the remote salt-agent directory, configures `SALT_AGENT_HOME` and `PATH` through `/etc/profile.d/salt-agent.sh`, uploads every file under local `scripts/` to `<remote-path>/scripts/`, and grants executable permissions to the synced scripts.
+
+Use `--scripts-dir` when scripts live somewhere other than `scripts/`. Use `--dry-run` to preview the generated register actions without connecting.
+
 ## Configuration
 
 Copy `configs/agent.example.yaml` to `configs/agent.yaml` and adjust:
