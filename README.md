@@ -48,12 +48,6 @@ Preview commands without running them:
 ./salt-agent deploy --config configs/agent.yaml --env test --modules example-frank --dry-run
 ```
 
-Print verbose deployment details:
-
-```bash
-./salt-agent deploy --config configs/agent.yaml --env test --modules example-frank --debug
-```
-
 ## Configuration
 
 Copy `configs/agent.example.yaml` to `configs/agent.yaml` and adjust:

@@ -48,12 +48,6 @@ powershell -ExecutionPolicy Bypass -File scripts/build-centos.ps1 -Version dev
 ./salt-agent deploy --config configs/agent.yaml --env test --modules example-frank --dry-run
 ```
 
-输出详细部署信息：
-
-```bash
-./salt-agent deploy --config configs/agent.yaml --env test --modules example-frank --debug
-```
-
 ## 配置
 
 复制 `configs/agent.example.yaml` 为 `configs/agent.yaml` 并按实际环境调整：
