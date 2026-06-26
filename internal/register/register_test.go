@@ -56,6 +56,44 @@ func TestRegistrarRunsInstallUploadsScriptsAndChmods(t *testing.T) {
 	}
 }
 
+func TestRegistrarUploadsScriptsToRemotePathWhenScriptsDirProvided(t *testing.T) {
+	scriptsDir := t.TempDir()
+	writeFile(t, filepath.Join(scriptsDir, "install_salt_agent.sh"), "#!/bin/bash\necho install\n")
+	writeFile(t, filepath.Join(scriptsDir, "nested", "restart.sh"), "#!/bin/bash\necho restart\n")
+
+	client := &recordingClient{}
+	registrar := Registrar{Client: client}
+
+	err := registrar.Run(context.Background(), Options{
+		SSHDir:             filepath.Join(t.TempDir(), ".ssh"),
+		Host:               "10.0.0.1",
+		Port:               2222,
+		User:               "root",
+		Password:           "secret",
+		RemotePath:         "/prosh/salt-agent",
+		ScriptsDir:         scriptsDir,
+		ScriptsDirProvided: true,
+	})
+
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if client.commands[1] != "chmod -R a+rx '/prosh/salt-agent'" {
+		t.Fatalf("unexpected chmod command %q", client.commands[1])
+	}
+
+	wantUploads := []uploadRecord{
+		{local: filepath.Join(scriptsDir, "install_salt_agent.sh"), remote: "/prosh/salt-agent/install_salt_agent.sh", mode: 0o755},
+		{local: filepath.Join(scriptsDir, "nested", "restart.sh"), remote: "/prosh/salt-agent/nested/restart.sh", mode: 0o755},
+	}
+	if !sameUploads(client.uploads, wantUploads) {
+		t.Fatalf("uploads mismatch\nwant %#v\n got %#v", wantUploads, client.uploads)
+	}
+	if !contains(client.dirs, "/prosh/salt-agent") || !contains(client.dirs, "/prosh/salt-agent/nested") {
+		t.Fatalf("expected remote target dirs to be created, got %#v", client.dirs)
+	}
+}
+
 func TestRegistrarUploadsPublicKeyBeforeInstall(t *testing.T) {
 	scriptsDir := t.TempDir()
 	writeFile(t, filepath.Join(scriptsDir, "install_salt_agent.sh"), "#!/bin/bash\necho install\n")

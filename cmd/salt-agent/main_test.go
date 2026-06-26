@@ -69,6 +69,24 @@ func TestParseRegisterOptionsSupportsRegenerateKey(t *testing.T) {
 	}
 }
 
+func TestParseRegisterOptionsMarksProvidedScriptsDir(t *testing.T) {
+	opts, err := parseRegisterOptions([]string{
+		"--ssh-dir", "/root/.ssh",
+		"--host", "10.0.0.1",
+		"--user", "root",
+		"--password", "secret",
+		"--remote-path", "/data/salt-agent",
+		"--scripts-dir", "/prosh/salt-agent",
+	})
+
+	if err != nil {
+		t.Fatalf("parseRegisterOptions returned error: %v", err)
+	}
+	if !opts.ScriptsDirProvided {
+		t.Fatal("expected scripts dir to be marked as provided")
+	}
+}
+
 func TestRegisterSuccessMessageIncludesHostAndRemotePath(t *testing.T) {
 	got := registerSuccessMessage("47.120.6.215", "/prosh/salt-agent")
 	want := "register completed successfully, host: 47.120.6.215, remote path: /prosh/salt-agent"

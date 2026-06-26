@@ -17,14 +17,15 @@ import (
 )
 
 type Options struct {
-	SSHDir        string
-	Host          string
-	Port          int
-	User          string
-	Password      string
-	RemotePath    string
-	ScriptsDir    string
-	PublicKeyPath string
+	SSHDir             string
+	Host               string
+	Port               int
+	User               string
+	Password           string
+	RemotePath         string
+	ScriptsDir         string
+	ScriptsDirProvided bool
+	PublicKeyPath      string
 }
 
 type Client interface {
@@ -67,7 +68,7 @@ func (r Registrar) Run(ctx context.Context, opts Options) error {
 	if err := r.Client.Run(ctx, installScript(opts.RemotePath)); err != nil {
 		return fmt.Errorf("run remote install script: %w", err)
 	}
-	remoteScripts := remoteJoin(opts.RemotePath, "scripts")
+	remoteScripts := targetScriptsPath(opts)
 	if err := r.syncScripts(ctx, opts.ScriptsDir, remoteScripts); err != nil {
 		return err
 	}
@@ -75,6 +76,13 @@ func (r Registrar) Run(ctx context.Context, opts Options) error {
 		return fmt.Errorf("chmod remote scripts: %w", err)
 	}
 	return nil
+}
+
+func targetScriptsPath(opts Options) string {
+	if opts.ScriptsDirProvided {
+		return opts.RemotePath
+	}
+	return remoteJoin(opts.RemotePath, "scripts")
 }
 
 func EnsureKeyPair(sshDir string, regenerate bool) (KeyPair, error) {

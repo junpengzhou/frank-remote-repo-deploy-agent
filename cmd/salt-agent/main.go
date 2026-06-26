@@ -62,15 +62,22 @@ func parseRegisterOptions(args []string) (registerCLIOptions, error) {
 	if err := fs.Parse(args); err != nil {
 		return registerCLIOptions{}, err
 	}
+	scriptsDirProvided := false
+	fs.Visit(func(flag *flag.Flag) {
+		if flag.Name == "scripts-dir" {
+			scriptsDirProvided = true
+		}
+	})
 	opts := registerCLIOptions{
 		Options: registerx.Options{
-			SSHDir:     *sshDir,
-			Host:       *host,
-			Port:       *port,
-			User:       *user,
-			Password:   *password,
-			RemotePath: *remotePath,
-			ScriptsDir: *scriptsDir,
+			SSHDir:             *sshDir,
+			Host:               *host,
+			Port:               *port,
+			User:               *user,
+			Password:           *password,
+			RemotePath:         *remotePath,
+			ScriptsDir:         *scriptsDir,
+			ScriptsDirProvided: scriptsDirProvided,
 		},
 		DryRun:        *dryRun,
 		Debug:         *debug,

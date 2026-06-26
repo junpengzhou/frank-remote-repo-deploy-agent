@@ -65,7 +65,7 @@ Register a remote server, configure passwordless SSH, and sync the built-in `scr
 
 The register command uses native Go SSH/SFTP with password authentication first. It creates `--ssh-dir`, generates `id_rsa` and `id_rsa.pub` when they do not exist, uploads the public key to the remote server's `~/.ssh/authorized_keys`, verifies password SSH, then verifies passwordless SSH with the private key. Existing keys are preserved by default; pass `--regenerate-key` to replace them.
 
-After SSH bootstrap succeeds, register creates the remote salt-agent directory, configures `SALT_AGENT_HOME` and `PATH` through `/etc/profile.d/salt-agent.sh`, uploads every file under local `scripts/` to `<remote-path>/scripts/`, and grants executable permissions to the synced scripts.
+After SSH bootstrap succeeds, register creates the remote salt-agent directory, configures `SALT_AGENT_HOME` and `PATH` through `/etc/profile.d/salt-agent.sh`, uploads every file under local `scripts/` to `<remote-path>/scripts/`, and grants executable permissions to the synced scripts. When `--scripts-dir` is explicitly provided, register uploads that directory's contents directly to `<remote-path>/` instead of adding another `scripts/` level.
 
 Use `--scripts-dir` when scripts live somewhere other than `scripts/`. Use `--dry-run` to preview the generated register actions without connecting.
 
