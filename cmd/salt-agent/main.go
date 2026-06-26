@@ -148,7 +148,12 @@ func runRegister(args []string) error {
 	if err := keyClient.Run(ctx, "echo 'Passwordless login successful'"); err != nil {
 		return fmt.Errorf("verify passwordless ssh connection: %w", err)
 	}
+	output.Success(registerSuccessMessage(opts.Host, opts.RemotePath))
 	return nil
+}
+
+func registerSuccessMessage(host, remotePath string) string {
+	return fmt.Sprintf("register completed successfully, host: %s, remote path: %s", host, remotePath)
 }
 
 func runDeploy(args []string) error {

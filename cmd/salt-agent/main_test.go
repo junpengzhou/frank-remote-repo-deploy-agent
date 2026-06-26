@@ -68,3 +68,12 @@ func TestParseRegisterOptionsSupportsRegenerateKey(t *testing.T) {
 		t.Fatal("expected regenerate key option")
 	}
 }
+
+func TestRegisterSuccessMessageIncludesHostAndRemotePath(t *testing.T) {
+	got := registerSuccessMessage("47.120.6.215", "/prosh/salt-agent")
+	want := "register completed successfully, host: 47.120.6.215, remote path: /prosh/salt-agent"
+
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
