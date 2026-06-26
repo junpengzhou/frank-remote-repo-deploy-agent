@@ -56,6 +56,76 @@ func TestRegistrarRunsInstallUploadsScriptsAndChmods(t *testing.T) {
 	}
 }
 
+func TestRegistrarUploadsPublicKeyBeforeInstall(t *testing.T) {
+	scriptsDir := t.TempDir()
+	writeFile(t, filepath.Join(scriptsDir, "install_salt_agent.sh"), "#!/bin/bash\necho install\n")
+	publicKey := "ssh-rsa AAAATESTKEY salt-agent\n"
+	publicKeyPath := filepath.Join(t.TempDir(), "id_rsa.pub")
+	writeFile(t, publicKeyPath, publicKey)
+
+	client := &recordingClient{}
+	registrar := Registrar{Client: client}
+
+	err := registrar.Run(context.Background(), Options{
+		SSHDir:        filepath.Join(t.TempDir(), ".ssh"),
+		Host:          "10.0.0.1",
+		Port:          2222,
+		User:          "root",
+		Password:      "secret",
+		RemotePath:    "/data/salt-agent",
+		ScriptsDir:    scriptsDir,
+		PublicKeyPath: publicKeyPath,
+	})
+
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if len(client.inputCommands) != 1 {
+		t.Fatalf("expected one stdin command, got %#v", client.inputCommands)
+	}
+	if !strings.Contains(client.inputCommands[0].command, "authorized_keys") ||
+		!strings.Contains(client.inputCommands[0].command, "printf '%s") {
+		t.Fatalf("expected authorized_keys upload command, got %q", client.inputCommands[0].command)
+	}
+	if client.inputCommands[0].input != publicKey {
+		t.Fatalf("expected public key stdin %q, got %q", publicKey, client.inputCommands[0].input)
+	}
+	if len(client.commands) == 0 || !strings.Contains(client.commands[0], "SSH connection successful") {
+		t.Fatalf("expected password SSH verification before install, got %#v", client.commands)
+	}
+}
+
+func TestEnsureKeyPairCreatesFilesAndPreservesExistingKey(t *testing.T) {
+	sshDir := t.TempDir()
+
+	keyPair, err := EnsureKeyPair(sshDir, false)
+
+	if err != nil {
+		t.Fatalf("EnsureKeyPair returned error: %v", err)
+	}
+	if _, err := os.Stat(keyPair.PrivateKeyPath); err != nil {
+		t.Fatalf("expected private key: %v", err)
+	}
+	if _, err := os.Stat(keyPair.PublicKeyPath); err != nil {
+		t.Fatalf("expected public key: %v", err)
+	}
+	original, err := os.ReadFile(keyPair.PrivateKeyPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := EnsureKeyPair(sshDir, false); err != nil {
+		t.Fatalf("EnsureKeyPair preserve returned error: %v", err)
+	}
+	preserved, err := os.ReadFile(keyPair.PrivateKeyPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(original) != string(preserved) {
+		t.Fatal("expected existing private key to be preserved")
+	}
+}
+
 func TestRegistrarRequiresConnectionAndPathFields(t *testing.T) {
 	err := (Registrar{}).Run(context.Background(), Options{
 		Host:       "10.0.0.1",
@@ -102,13 +172,19 @@ func writeFile(t *testing.T, path string, content string) {
 }
 
 type recordingClient struct {
-	commands []string
-	dirs     []string
-	uploads  []uploadRecord
+	commands      []string
+	inputCommands []inputCommand
+	dirs          []string
+	uploads       []uploadRecord
 }
 
 func (c *recordingClient) Run(_ context.Context, command string) error {
 	c.commands = append(c.commands, command)
+	return nil
+}
+
+func (c *recordingClient) RunWithInput(_ context.Context, command string, input string) error {
+	c.inputCommands = append(c.inputCommands, inputCommand{command: command, input: input})
 	return nil
 }
 
@@ -130,6 +206,11 @@ type uploadRecord struct {
 	local  string
 	remote string
 	mode   os.FileMode
+}
+
+type inputCommand struct {
+	command string
+	input   string
 }
 
 func sameUploads(got, want []uploadRecord) bool {

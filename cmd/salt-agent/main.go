@@ -42,8 +42,9 @@ func run(args []string) error {
 
 type registerCLIOptions struct {
 	registerx.Options
-	DryRun bool
-	Debug  bool
+	DryRun        bool
+	Debug         bool
+	RegenerateKey bool
 }
 
 func parseRegisterOptions(args []string) (registerCLIOptions, error) {
@@ -55,6 +56,7 @@ func parseRegisterOptions(args []string) (registerCLIOptions, error) {
 	password := fs.String("password", "", "remote SSH password")
 	remotePath := fs.String("remote-path", "", "remote salt-agent path")
 	scriptsDir := fs.String("scripts-dir", "scripts", "local scripts directory to sync")
+	regenerateKey := fs.Bool("regenerate-key", false, "regenerate SSH key pair when id_rsa already exists")
 	dryRun := fs.Bool("dry-run", false, "print register actions without connecting")
 	debug := fs.Bool("debug", false, "print verbose register details")
 	if err := fs.Parse(args); err != nil {
@@ -70,8 +72,9 @@ func parseRegisterOptions(args []string) (registerCLIOptions, error) {
 			RemotePath: *remotePath,
 			ScriptsDir: *scriptsDir,
 		},
-		DryRun: *dryRun,
-		Debug:  *debug,
+		DryRun:        *dryRun,
+		Debug:         *debug,
+		RegenerateKey: *regenerateKey,
 	}
 	if opts.SSHDir == "" {
 		return registerCLIOptions{}, fmt.Errorf("--ssh-dir is required")
@@ -100,6 +103,12 @@ func runRegister(args []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	keyPair, err := registerx.EnsureKeyPair(opts.SSHDir, opts.RegenerateKey)
+	if err != nil {
+		return err
+	}
+	opts.PublicKeyPath = keyPair.PublicKeyPath
+
 	var client registerx.Client
 	if opts.DryRun {
 		client = registerx.NewDryRunClient(os.Stdout)
@@ -115,8 +124,31 @@ func runRegister(args []string) error {
 			return err
 		}
 	}
-	output.Debug("register host=%s port=%d user=%s remotePath=%s scriptsDir=%s dryRun=%v", opts.Host, opts.Port, opts.User, opts.RemotePath, opts.ScriptsDir, opts.DryRun)
-	return registerx.Registrar{Client: client}.Run(ctx, opts.Options)
+	output.Debug("register host=%s port=%d user=%s remotePath=%s scriptsDir=%s dryRun=%v",
+		opts.Host, opts.Port, opts.User, opts.RemotePath, opts.ScriptsDir, opts.DryRun)
+	if err := (registerx.Registrar{Client: client}).Run(ctx, opts.Options); err != nil {
+		return err
+	}
+	if opts.DryRun {
+		return nil
+	}
+	keyClient, err := registerx.NewNativeClient(ctx, registerx.NativeOptions{
+		SSHDir:  opts.SSHDir,
+		Host:    opts.Host,
+		Port:    opts.Port,
+		User:    opts.User,
+		KeyFile: keyPair.PrivateKeyPath,
+	})
+	if err != nil {
+		return fmt.Errorf("verify passwordless ssh connection: %w", err)
+	}
+	defer func() {
+		_ = keyClient.Close()
+	}()
+	if err := keyClient.Run(ctx, "echo 'Passwordless login successful'"); err != nil {
+		return fmt.Errorf("verify passwordless ssh connection: %w", err)
+	}
+	return nil
 }
 
 func runDeploy(args []string) error {
@@ -178,11 +210,12 @@ func runDeploy(args []string) error {
 func usage() error {
 	_, _ = fmt.Fprintf(os.Stderr, "Usage:\n"+
 		"  salt-agent deploy --config configs/agent.yaml --env test --modules demo1[,demo2]\n"+
-		"  salt-agent register --ssh-dir ~/.ssh --host 10.0.0.1 --port 22 --user root --password secret --remote-path /data/salt-agent\n"+
+		"  salt-agent register --ssh-dir /data/salt-agent/.ssh --host 10.0.0.1 --port 22 --user root --password secret --remote-path /data/salt-agent\n"+
 		"\n"+
 		"Options:\n"+
 		"  --concurrency N   Deploy multiple main modules concurrently.\n"+
 		"  --dry-run         Print external commands without running them.\n"+
+		"  --regenerate-key  Regenerate register SSH key pair when id_rsa already exists.\n"+
 		"  --user NAME       Append --user NAME to module remoteScript.\n"+
 		"  --tail-lines N    Number of log lines to print, default %d.\n", constants.DefaultTailLines)
 	return nil

@@ -50,11 +50,11 @@ Preview commands without running them:
 
 ## Register Remote Server
 
-Register a remote server and sync the built-in `scripts/` directory:
+Register a remote server, configure passwordless SSH, and sync the built-in `scripts/` directory:
 
 ```bash
 ./salt-agent register \
-  --ssh-dir ~/.ssh \
+  --ssh-dir /data/salt-agent/.ssh \
   --host 10.0.0.1 \
   --port 22 \
   --user root \
@@ -62,7 +62,9 @@ Register a remote server and sync the built-in `scripts/` directory:
   --remote-path /data/salt-agent
 ```
 
-The register command uses native Go SSH/SFTP with password authentication. It creates the remote salt-agent directory, configures `SALT_AGENT_HOME` and `PATH` through `/etc/profile.d/salt-agent.sh`, uploads every file under local `scripts/` to `<remote-path>/scripts/`, and grants executable permissions to the synced scripts.
+The register command uses native Go SSH/SFTP with password authentication first. It creates `--ssh-dir`, generates `id_rsa` and `id_rsa.pub` when they do not exist, uploads the public key to the remote server's `~/.ssh/authorized_keys`, verifies password SSH, then verifies passwordless SSH with the private key. Existing keys are preserved by default; pass `--regenerate-key` to replace them.
+
+After SSH bootstrap succeeds, register creates the remote salt-agent directory, configures `SALT_AGENT_HOME` and `PATH` through `/etc/profile.d/salt-agent.sh`, uploads every file under local `scripts/` to `<remote-path>/scripts/`, and grants executable permissions to the synced scripts.
 
 Use `--scripts-dir` when scripts live somewhere other than `scripts/`. Use `--dry-run` to preview the generated register actions without connecting.
 

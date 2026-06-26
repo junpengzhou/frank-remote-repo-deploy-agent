@@ -23,6 +23,11 @@ func (c *DryRunClient) Run(_ context.Context, command string) error {
 	return nil
 }
 
+func (c *DryRunClient) RunWithInput(_ context.Context, command string, input string) error {
+	_, _ = fmt.Fprintf(c.Writer, "[register cmd stdin] %s (%d bytes)\n", command, len(input))
+	return nil
+}
+
 func (c *DryRunClient) MkdirAll(_ context.Context, path string) error {
 	_, _ = fmt.Fprintf(c.Writer, "[register mkdir] %s\n", path)
 	return nil

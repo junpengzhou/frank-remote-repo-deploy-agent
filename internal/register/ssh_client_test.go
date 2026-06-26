@@ -47,6 +47,18 @@ func TestBuildSSHClientConfigUsesPasswordAndTimeout(t *testing.T) {
 	}
 }
 
+func TestBuildSSHClientConfigRejectsMissingKeyFile(t *testing.T) {
+	_, err := buildSSHClientConfig(NativeOptions{
+		SSHDir:  t.TempDir(),
+		User:    "root",
+		KeyFile: filepath.Join(t.TempDir(), "missing_id_rsa"),
+	})
+
+	if err == nil || !strings.Contains(err.Error(), "read private key") {
+		t.Fatalf("expected missing key file error, got %v", err)
+	}
+}
+
 func TestNewNativeClientPreparesSSHDirBeforeDial(t *testing.T) {
 	sshDir := filepath.Join(t.TempDir(), ".ssh")
 

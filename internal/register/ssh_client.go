@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/pkg/sftp"
@@ -22,6 +23,7 @@ type NativeOptions struct {
 	Port     int
 	User     string
 	Password string
+	KeyFile  string
 	Timeout  time.Duration
 }
 
@@ -79,12 +81,31 @@ func buildSSHClientConfig(opts NativeOptions) (*ssh.ClientConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+	auth, err := authMethods(opts)
+	if err != nil {
+		return nil, err
+	}
 	return &ssh.ClientConfig{
 		User:            opts.User,
-		Auth:            []ssh.AuthMethod{ssh.Password(opts.Password)},
+		Auth:            auth,
 		HostKeyCallback: callback,
 		Timeout:         timeout,
 	}, nil
+}
+
+func authMethods(opts NativeOptions) ([]ssh.AuthMethod, error) {
+	if opts.KeyFile != "" {
+		key, err := os.ReadFile(opts.KeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("read private key: %w", err)
+		}
+		signer, err := ssh.ParsePrivateKey(key)
+		if err != nil {
+			return nil, fmt.Errorf("parse private key: %w", err)
+		}
+		return []ssh.AuthMethod{ssh.PublicKeys(signer)}, nil
+	}
+	return []ssh.AuthMethod{ssh.Password(opts.Password)}, nil
 }
 
 func hostKeyCallback(sshDir string) (ssh.HostKeyCallback, error) {
@@ -139,6 +160,14 @@ func nativeAddress(opts NativeOptions) string {
 }
 
 func (c *NativeClient) Run(ctx context.Context, command string) error {
+	return c.run(ctx, command, "")
+}
+
+func (c *NativeClient) RunWithInput(ctx context.Context, command string, input string) error {
+	return c.run(ctx, command, input)
+}
+
+func (c *NativeClient) run(ctx context.Context, command string, input string) error {
 	session, err := c.ssh.NewSession()
 	if err != nil {
 		return fmt.Errorf("open ssh session: %w", err)
@@ -146,6 +175,9 @@ func (c *NativeClient) Run(ctx context.Context, command string) error {
 	defer func() {
 		_ = session.Close()
 	}()
+	if input != "" {
+		session.Stdin = strings.NewReader(input)
+	}
 
 	type runResult struct {
 		output []byte
