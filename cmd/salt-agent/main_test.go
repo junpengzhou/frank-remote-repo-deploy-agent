@@ -1,6 +1,11 @@
 package main
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+
+	registerx "frank-remote-repo-deploy-agent/internal/register"
+)
 
 func TestParseRegisterOptionsDefaultsPortAndScriptsDir(t *testing.T) {
 	opts, err := parseRegisterOptions([]string{
@@ -94,4 +99,28 @@ func TestRegisterSuccessMessageIncludesHostAndRemotePath(t *testing.T) {
 	if got != want {
 		t.Fatalf("expected %q, got %q", want, got)
 	}
+}
+
+func TestOpenSSHPasswordlessCommandDisablesStrictHostKeyChecking(t *testing.T) {
+	name, args := openSSHPasswordlessCommand(registerCLIOptions{
+		Options: registerOptionsForTest("root", "47.120.6.215", 22022),
+	}, "/data/salt-agent/.ssh/id_rsa")
+	wantArgs := []string{
+		"-i", "/data/salt-agent/.ssh/id_rsa",
+		"-o", "StrictHostKeyChecking=no",
+		"-p", "22022",
+		"root@47.120.6.215",
+		"echo 'Passwordless login successful'",
+	}
+
+	if name != "ssh" {
+		t.Fatalf("expected ssh command, got %q", name)
+	}
+	if !reflect.DeepEqual(args, wantArgs) {
+		t.Fatalf("args mismatch\nwant %#v\n got %#v", wantArgs, args)
+	}
+}
+
+func registerOptionsForTest(user, host string, port int) registerx.Options {
+	return registerx.Options{User: user, Host: host, Port: port}
 }

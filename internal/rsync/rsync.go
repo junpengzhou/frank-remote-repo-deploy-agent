@@ -23,7 +23,7 @@ func BuildCommand(sourceDir, remotePath string, opts Options) runner.Command {
 	if len(args) == 0 {
 		args = []string{"-az", "--delete", "--partial"}
 	}
-	sshArgs := []string{"ssh", "-p", fmt.Sprintf("%d", sshPort(opts.SSH))}
+	sshArgs := []string{"ssh", "-p", fmt.Sprintf("%d", sshPort(opts.SSH)), "-o", "StrictHostKeyChecking=no"}
 	if opts.SSH.KeyFile != "" {
 		sshArgs = append(sshArgs, "-i", opts.SSH.KeyFile)
 	}

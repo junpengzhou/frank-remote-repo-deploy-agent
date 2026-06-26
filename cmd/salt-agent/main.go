@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
 	"syscall"
 
@@ -155,8 +156,35 @@ func runRegister(args []string) error {
 	if err := keyClient.Run(ctx, "echo 'Passwordless login successful'"); err != nil {
 		return fmt.Errorf("verify passwordless ssh connection: %w", err)
 	}
+	if err := verifyOpenSSHPasswordless(ctx, opts, keyPair.PrivateKeyPath); err != nil {
+		return err
+	}
 	output.Success(registerSuccessMessage(opts.Host, opts.RemotePath))
 	return nil
+}
+
+func verifyOpenSSHPasswordless(ctx context.Context, opts registerCLIOptions, privateKeyPath string) error {
+	name, args := openSSHPasswordlessCommand(opts, privateKeyPath)
+	cmd := exec.CommandContext(ctx, name, args...)
+	combinedOutput, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("verify openssh passwordless ssh connection: %w: %s", err, string(combinedOutput))
+	}
+	return nil
+}
+
+func openSSHPasswordlessCommand(opts registerCLIOptions, privateKeyPath string) (string, []string) {
+	port := opts.Port
+	if port == 0 {
+		port = 22
+	}
+	return "ssh", []string{
+		"-i", privateKeyPath,
+		"-o", "StrictHostKeyChecking=no",
+		"-p", fmt.Sprintf("%d", port),
+		opts.User + "@" + opts.Host,
+		"echo 'Passwordless login successful'",
+	}
 }
 
 func registerSuccessMessage(host, remotePath string) string {
@@ -207,8 +235,8 @@ func runDeploy(args []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	output.SetDebug(*debug)
-	exec := runner.ExecRunner{Stdout: os.Stdout, Stderr: os.Stderr, DryRun: *dryRun, Debug: *debug}
-	deployer := deploy.New(cfg, exec, exec, store)
+	execRunner := runner.ExecRunner{Stdout: os.Stdout, Stderr: os.Stderr, DryRun: *dryRun, Debug: *debug}
+	deployer := deploy.New(cfg, execRunner, execRunner, store)
 	output.Debug("deploy env=%s modules=%v concurrency=%d dryRun=%v debug=%v", *env, modules, *concurrency, *dryRun, *debug)
 	return deployer.Run(ctx, deploy.Options{
 		Env:         *env,

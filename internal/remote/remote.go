@@ -32,7 +32,7 @@ func TailCommand(ssh config.SSHConfig, logFile string, lines int) runner.Command
 }
 
 func sshCommand(ssh config.SSHConfig, remoteCommand string) runner.Command {
-	args := []string{"-p", fmt.Sprintf("%d", sshPort(ssh))}
+	args := []string{"-p", fmt.Sprintf("%d", sshPort(ssh)), "-o", "StrictHostKeyChecking=no"}
 	if ssh.KeyFile != "" {
 		args = append(args, "-i", ssh.KeyFile)
 	}
