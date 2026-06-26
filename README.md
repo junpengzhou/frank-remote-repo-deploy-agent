@@ -59,7 +59,8 @@ Register a remote server, configure passwordless SSH, and sync the built-in `scr
   --port 22 \
   --user root \
   --password 'secret' \
-  --remote-path /data/salt-agent
+  --remote-path /shell/salt-agent \
+  --scripts-dir /shell/salt-agent
 ```
 
 The register command uses native Go SSH/SFTP with password authentication first. It creates `--ssh-dir`, generates `id_rsa` and `id_rsa.pub` when they do not exist, uploads the public key to the remote server's `~/.ssh/authorized_keys`, verifies password SSH, then verifies passwordless SSH with the private key. Existing keys are preserved by default; pass `--regenerate-key` to replace them.
