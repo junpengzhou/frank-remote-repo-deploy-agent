@@ -142,7 +142,7 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 			continue
 		}
 		if err := d.withMavenLock(ctx, func() error {
-			cmd := maven.BuildInstallCommand(d.Config.BuildRoot, dep, true, d.mavenOptions(opts.Env))
+			cmd := maven.BuildInstallCommand(d.Config.BuildRoot, dep, false, d.mavenOptions(opts.Env))
 			return d.Runner.Run(ctx, cmd)
 		}); err != nil {
 			return stageErr(dep, "maven install dependency", err)
