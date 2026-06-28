@@ -181,6 +181,7 @@ func openSSHPasswordlessCommand(opts registerCLIOptions, privateKeyPath string) 
 	return "ssh", []string{
 		"-i", privateKeyPath,
 		"-o", "StrictHostKeyChecking=no",
+		"-o", "BatchMode=yes",
 		"-p", fmt.Sprintf("%d", port),
 		opts.User + "@" + opts.Host,
 		"echo 'Passwordless login successful'",

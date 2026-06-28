@@ -108,6 +108,7 @@ func TestOpenSSHPasswordlessCommandDisablesStrictHostKeyChecking(t *testing.T) {
 	wantArgs := []string{
 		"-i", "/data/salt-agent/.ssh/id_rsa",
 		"-o", "StrictHostKeyChecking=no",
+		"-o", "BatchMode=yes",
 		"-p", "22022",
 		"root@47.120.6.215",
 		"echo 'Passwordless login successful'",
