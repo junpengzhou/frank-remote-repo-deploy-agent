@@ -77,7 +77,7 @@ Copy `configs/agent.example.yaml` to `configs/agent.yaml` and adjust:
 - `jdk.javaHome`
 - `maven.executable`, `maven.settings`, `maven.localRepo`
 - `ssh.user`, `ssh.host`, `ssh.port`, `ssh.keyFile`
-- `rsync.options`
+- `rsync.options`, `rsync.connectTimeout`, `rsync.timeout`, `rsync.retries`, `rsync.retryDelay`
 - `environments.<name>.branch`, `environments.<name>.mavenProfile`
 - `modules.<name>.repo`, `dependencies`, `remotePath`, `container`, `logFile`, `healthUrl`, `healthTimeout`, `remoteScript`
 
@@ -89,6 +89,23 @@ Dependency-only modules only need `repo` and `packaging`. Requested deployment m
 
 `modules.<name>.healthTimeout` defaults to `2m` and accepts Go duration values such as `30s`, `2m`, or `5m`.
 
+For unstable networks, configure rsync timeouts and retries:
+
+```yaml
+rsync:
+  executable: rsync
+  options:
+    - -az
+    - --delete
+    - --partial
+  connectTimeout: 10s
+  timeout: 60s
+  retries: 3
+  retryDelay: 5s
+```
+
+`connectTimeout` is converted to both rsync `--contimeout` and SSH `ConnectTimeout`; `timeout` is converted to rsync `--timeout`. `retries` is the number of extra rsync attempts after the first failure.
+
 ## Behavior
 
 - Dependency cache: stores `{module, branch, commit}` in the configured JSON cache. If the commit did not change, dependency `mvn install` is skipped.
@@ -96,6 +113,6 @@ Dependency-only modules only need `repo` and `packaging`. Requested deployment m
 - Maven safety: all Maven install steps use a cross-process directory lock to avoid concurrent writes to the same local repository.
 - Same-module preemption: starting a new deployment for the same module supersedes the older run. The older run exits at the next stage boundary.
 - Aggregator POM maintenance: after each repository checkout, the agent ensures `buildRoot/pom.xml` contains `<module>module-name</module>` and appends it to `<modules>` when missing.
-- Remote sync: WAR files are extracted locally, then synchronized with `rsync --delete` so removed classes and files are also removed remotely.
+- Remote sync: WAR files are extracted locally, then synchronized with `rsync --delete` so removed classes and files are also removed remotely. Rsync can use configured connect/I/O timeouts and retry transient failures.
 - Logs: when `healthUrl` is not configured, remote logs are not tailed automatically. The agent prints an English suggestion so operators can log in to the server and check startup status manually.
 - Health checks: when `healthUrl` is configured, the agent prints an English startup wait message, polls until HTTP 200 or `healthTimeout`, then prints remote logs once with `tail -fn` if `logFile` is configured. If `healthUrl` is configured without `logFile`, success prints an English message indicating the app started and that logs are not configured; timeout prints an English unknown-status message.

@@ -39,6 +39,22 @@ func TestExecRunnerPrintsCommandInDebugMode(t *testing.T) {
 	}
 }
 
+func TestExecRunnerPrintsWorkingDirectoryInDebugMode(t *testing.T) {
+	var out bytes.Buffer
+	run := ExecRunner{Stdout: &out, Debug: true}
+	cmd := helperCommand()
+	cmd.Dir = t.TempDir()
+
+	err := run.Run(context.Background(), cmd)
+
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if !strings.Contains(out.String(), "[cmd] (dir="+cmd.Dir+") "+cmd.String()) {
+		t.Fatalf("expected command log with working directory, got %q", out.String())
+	}
+}
+
 func TestExecRunnerPrintsCommandInDryRunMode(t *testing.T) {
 	var out bytes.Buffer
 	run := ExecRunner{Stdout: &out, DryRun: true}

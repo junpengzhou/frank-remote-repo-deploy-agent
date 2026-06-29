@@ -117,6 +117,7 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 		}
 		repoModule := d.Config.Modules[name]
 		dir := d.moduleDir(name)
+		output.Debug("checkout module %s repo=%s branch=%s dir=%s", name, repoModule.Repo, branch, dir)
 		if err := git.EnsureRepo(ctx, repoModule.Repo, dir); err != nil {
 			return stageErr(name, "ensure git repository", err)
 		}
@@ -168,20 +169,25 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 	if err != nil {
 		return stageErr(moduleName, "find artifact", err)
 	}
+	output.Debug("artifact selected module=%s path=%s packaging=%s", moduleName, artifact.Path, artifact.Packaging)
 	staging, err := packagex.PrepareStaging(artifact, d.Config.StagingDir, moduleName)
 	if err != nil {
 		return stageErr(moduleName, "prepare staging", err)
 	}
+	output.Debug("staging prepared module=%s dir=%s", moduleName, staging)
 
 	if err := lease.Check(); err != nil {
 		return stageErr(moduleName, "superseded", err)
 	}
 	syncCmd := rsync.BuildCommand(staging, module.RemotePath, rsync.Options{
-		Executable: d.Config.Rsync.Executable,
-		Options:    d.Config.Rsync.Options,
-		SSH:        d.Config.SSH,
+		Executable:            d.Config.Rsync.Executable,
+		Options:               d.Config.Rsync.Options,
+		ConnectTimeoutSeconds: durationSeconds(d.Config.Rsync.ConnectTimeout),
+		TimeoutSeconds:        durationSeconds(d.Config.Rsync.Timeout),
+		SSH:                   d.Config.SSH,
 	})
-	if err := d.Runner.Run(ctx, syncCmd); err != nil {
+	output.Debug("rsync module=%s source=%s remotePath=%s", moduleName, staging, module.RemotePath)
+	if err := runRsyncWithRetry(ctx, d.Runner, syncCmd, d.Config.Rsync.Retries, d.Config.Rsync.RetryDelay); err != nil {
 		return stageErr(moduleName, "rsync to remote", err)
 	}
 
@@ -200,6 +206,49 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 		return stageErr(moduleName, "monitor startup", err)
 	}
 	return nil
+}
+
+func runRsyncWithRetry(ctx context.Context, run runner.Runner, cmd runner.Command, retries int, retryDelay time.Duration) error {
+	if retries < 0 {
+		retries = 0
+	}
+	attempts := retries + 1
+	var lastErr error
+	for attempt := 1; attempt <= attempts; attempt++ {
+		if err := run.Run(ctx, cmd); err != nil {
+			lastErr = err
+			if attempt == attempts {
+				return lastErr
+			}
+			output.Warning("rsync attempt %d/%d failed, retrying after %s: %v", attempt, attempts, retryDelay, err)
+			if retryDelay > 0 {
+				timer := time.NewTimer(retryDelay)
+				select {
+				case <-ctx.Done():
+					timer.Stop()
+					return ctx.Err()
+				case <-timer.C:
+				}
+			}
+			continue
+		}
+		return nil
+	}
+	return lastErr
+}
+
+func durationSeconds(d time.Duration) int {
+	if d <= 0 {
+		return 0
+	}
+	seconds := int(d / time.Second)
+	if d%time.Second != 0 {
+		seconds++
+	}
+	if seconds == 0 {
+		return 1
+	}
+	return seconds
 }
 
 func (d *Deployer) withMavenLock(ctx context.Context, fn func() error) error {

@@ -91,6 +91,46 @@ modules:
 	}
 }
 
+func TestLoadFileReadsRsyncTimeoutAndRetrySettings(t *testing.T) {
+	path := writeConfig(t, `
+workspace: /tmp/salt-agent
+cacheFile: /tmp/salt-agent/cache.json
+ssh:
+  user: deploy
+  host: 10.0.0.2
+rsync:
+  connectTimeout: 10s
+  timeout: 60s
+  retries: 3
+  retryDelay: 5s
+environments:
+  test:
+    branch: test
+modules:
+  example-frank:
+    repo: git@example.com/frank.git
+    remotePath: /data/frank
+    container: frank
+`)
+
+	cfg, err := LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile returned error: %v", err)
+	}
+	if cfg.Rsync.ConnectTimeout != 10*time.Second {
+		t.Fatalf("expected connect timeout 10s, got %v", cfg.Rsync.ConnectTimeout)
+	}
+	if cfg.Rsync.Timeout != 60*time.Second {
+		t.Fatalf("expected timeout 60s, got %v", cfg.Rsync.Timeout)
+	}
+	if cfg.Rsync.Retries != 3 {
+		t.Fatalf("expected 3 retries, got %d", cfg.Rsync.Retries)
+	}
+	if cfg.Rsync.RetryDelay != 5*time.Second {
+		t.Fatalf("expected retry delay 5s, got %v", cfg.Rsync.RetryDelay)
+	}
+}
+
 func TestLoadFileRejectsUnknownDependency(t *testing.T) {
 	path := writeConfig(t, `
 workspace: /tmp/salt-agent

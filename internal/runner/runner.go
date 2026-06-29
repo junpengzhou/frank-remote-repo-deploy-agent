@@ -47,7 +47,7 @@ func (r ExecRunner) Run(ctx context.Context, spec Command) error {
 		errOut = os.Stderr
 	}
 	if r.Debug || r.DryRun {
-		_, _ = fmt.Fprintf(out, "[cmd] %s\n", spec.String())
+		_, _ = fmt.Fprintf(out, "[cmd] %s\n", commandLog(spec))
 	}
 	if r.DryRun {
 		// dry-run 用于在部署机上先确认 git/mvn/rsync/ssh 命令是否符合预期。
@@ -70,6 +70,13 @@ func (r ExecRunner) Run(ctx context.Context, spec Command) error {
 		return fmt.Errorf("command failed: %s: %w", spec.String(), err)
 	}
 	return nil
+}
+
+func commandLog(spec Command) string {
+	if spec.Dir == "" {
+		return spec.String()
+	}
+	return fmt.Sprintf("(dir=%s) %s", spec.Dir, spec.String())
 }
 
 func (r ExecRunner) Output(ctx context.Context, spec Command) (string, error) {

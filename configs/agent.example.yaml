@@ -26,6 +26,13 @@ rsync:
     - -az
     - --delete
     - --partial
+  # connectTimeout applies to both rsync --contimeout and ssh ConnectTimeout.
+  connectTimeout: 10s
+  # timeout applies to rsync I/O idle timeout during transfer.
+  timeout: 60s
+  # retries is the number of extra rsync attempts after the first failure.
+  retries: 3
+  retryDelay: 5s
 
 environments:
   test:

@@ -45,8 +45,12 @@ type SSHConfig struct {
 }
 
 type RsyncConfig struct {
-	Executable string   `yaml:"executable"`
-	Options    []string `yaml:"options"`
+	Executable     string        `yaml:"executable"`
+	Options        []string      `yaml:"options"`
+	ConnectTimeout time.Duration `yaml:"connectTimeout"`
+	Timeout        time.Duration `yaml:"timeout"`
+	Retries        int           `yaml:"retries"`
+	RetryDelay     time.Duration `yaml:"retryDelay"`
 }
 
 type EnvConfig struct {
@@ -89,6 +93,9 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.Rsync.Executable == "" {
 		cfg.Rsync.Executable = "rsync"
+	}
+	if cfg.Rsync.Retries > 0 && cfg.Rsync.RetryDelay == 0 {
+		cfg.Rsync.RetryDelay = 5 * time.Second
 	}
 	if cfg.SSH.Port == 0 {
 		cfg.SSH.Port = 22
@@ -133,6 +140,18 @@ func (c *Config) Validate() error {
 	}
 	if c.SSH.User == "" || c.SSH.Host == "" {
 		problems = append(problems, "ssh.user and ssh.host are required")
+	}
+	if c.Rsync.ConnectTimeout < 0 {
+		problems = append(problems, "rsync.connectTimeout must be greater than or equal to 0")
+	}
+	if c.Rsync.Timeout < 0 {
+		problems = append(problems, "rsync.timeout must be greater than or equal to 0")
+	}
+	if c.Rsync.Retries < 0 {
+		problems = append(problems, "rsync.retries must be greater than or equal to 0")
+	}
+	if c.Rsync.RetryDelay < 0 {
+		problems = append(problems, "rsync.retryDelay must be greater than or equal to 0")
 	}
 	if len(c.Environments) == 0 {
 		problems = append(problems, "at least one environment is required")

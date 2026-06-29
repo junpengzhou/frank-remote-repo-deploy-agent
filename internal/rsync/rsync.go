@@ -9,9 +9,11 @@ import (
 )
 
 type Options struct {
-	Executable string
-	Options    []string
-	SSH        config.SSHConfig
+	Executable            string
+	Options               []string
+	ConnectTimeoutSeconds int
+	TimeoutSeconds        int
+	SSH                   config.SSHConfig
 }
 
 func BuildCommand(sourceDir, remotePath string, opts Options) runner.Command {
@@ -23,7 +25,16 @@ func BuildCommand(sourceDir, remotePath string, opts Options) runner.Command {
 	if len(args) == 0 {
 		args = []string{"-az", "--delete", "--partial"}
 	}
+	if opts.ConnectTimeoutSeconds > 0 {
+		args = append(args, fmt.Sprintf("--contimeout=%d", opts.ConnectTimeoutSeconds))
+	}
+	if opts.TimeoutSeconds > 0 {
+		args = append(args, fmt.Sprintf("--timeout=%d", opts.TimeoutSeconds))
+	}
 	sshArgs := []string{"ssh", "-p", fmt.Sprintf("%d", sshPort(opts.SSH)), "-o", "StrictHostKeyChecking=no", "-o", "BatchMode=yes"}
+	if opts.ConnectTimeoutSeconds > 0 {
+		sshArgs = append(sshArgs, "-o", fmt.Sprintf("ConnectTimeout=%d", opts.ConnectTimeoutSeconds))
+	}
 	if opts.SSH.KeyFile != "" {
 		sshArgs = append(sshArgs, "-i", opts.SSH.KeyFile)
 	}
