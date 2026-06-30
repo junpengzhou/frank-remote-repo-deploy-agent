@@ -38,7 +38,7 @@ func (c Client) Checkout(ctx context.Context, dir, branch string) error {
 	if err := c.Runner.Run(ctx, runner.Command{Name: "git", Args: []string{"reset", "--hard", remoteBranch}, Dir: dir}); err != nil {
 		return err
 	}
-	if err := c.Runner.Run(ctx, runner.Command{Name: "git", Args: []string{"clean", "-ffdx"}, Dir: dir, SuppressStdout: true}); err != nil {
+	if err := c.Runner.Run(ctx, runner.Command{Name: "git", Args: []string{"clean", "-ffd"}, Dir: dir, SuppressStdout: true}); err != nil {
 		return err
 	}
 	c.logCheckoutEvidence(ctx, dir, branch)
