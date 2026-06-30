@@ -129,7 +129,8 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 		}
 	}
 
-	// 基础模块用 HEAD 缓存判断是否需要重新 install，减少无意义构建。
+	// 标识是否所有模块都有命中缓存
+	allDependenciesCached := true
 	for _, dep := range module.Dependencies {
 		if err := lease.Check(); err != nil {
 			return stageErr(moduleName, "superseded", err)
@@ -138,31 +139,55 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 		if err != nil {
 			return stageErr(dep, "read git HEAD", err)
 		}
-		if !d.Cache.Changed(dep, branch, commit) {
+		// 基础模块用 HEAD 缓存判断是否需要重新 install，减少无意义构建。
+		dependencyChanged := d.Cache == nil || d.Cache.Changed(dep, branch, commit)
+		if !dependencyChanged {
 			output.Info("cache hit %s@%s unchanged (%s), skip install", dep, branch, commit)
 			continue
 		}
+		// 有模块没命中缓存，则重新 install 模块
+		allDependenciesCached = false
 		if err := d.withMavenLock(ctx, func() error {
 			cmd := maven.BuildInstallCommand(d.Config.BuildRoot, dep, false, d.mavenOptions(opts.Env))
 			return d.Runner.Run(ctx, cmd)
 		}); err != nil {
 			return stageErr(dep, "maven install dependency", err)
 		}
-		d.Cache.Update(dep, branch, commit)
-		if err := d.Cache.Save(); err != nil {
-			return stageErr(dep, "save cache", err)
+		if d.Cache != nil {
+			d.Cache.Update(dep, branch, commit)
+			if err := d.Cache.Save(); err != nil {
+				return stageErr(dep, "save cache", err)
+			}
 		}
 	}
 
 	if err := lease.Check(); err != nil {
 		return stageErr(moduleName, "superseded", err)
 	}
-	if err := d.withMavenLock(ctx, func() error {
-		// 主模块始终构建，确保本次发布产物来自当前分支最新代码。
-		cmd := maven.BuildInstallCommand(d.Config.BuildRoot, moduleName, false, d.mavenOptions(opts.Env))
-		return d.Runner.Run(ctx, cmd)
-	}); err != nil {
-		return stageErr(moduleName, "maven install module", err)
+	// 获取主模块 HEAD
+	mainCommit, err := gitops.HeadCommit(ctx, d.Output, d.moduleDir(moduleName))
+	if err != nil {
+		return stageErr(moduleName, "read git HEAD", err)
+	}
+	// 判断主模块是否有变更
+	mainChanged := d.Cache == nil || d.Cache.Changed(moduleName, branch, mainCommit)
+	// 所有模块都命中缓存且主模块没有变更，则跳过 install
+	if allDependenciesCached && !mainChanged {
+		output.Info("cache hit %s@%s unchanged (%s), skip install", moduleName, branch, mainCommit)
+	} else {
+		if err := d.withMavenLock(ctx, func() error {
+			// 主模块依赖任意重新编译时也需要重新打包，确保产物包含最新依赖。
+			cmd := maven.BuildInstallCommand(d.Config.BuildRoot, moduleName, false, d.mavenOptions(opts.Env))
+			return d.Runner.Run(ctx, cmd)
+		}); err != nil {
+			return stageErr(moduleName, "maven install module", err)
+		}
+		if d.Cache != nil {
+			d.Cache.Update(moduleName, branch, mainCommit)
+			if err := d.Cache.Save(); err != nil {
+				return stageErr(moduleName, "save cache", err)
+			}
+		}
 	}
 
 	artifact, err := packagex.FindArtifact(d.moduleDir(moduleName), module.Packaging)

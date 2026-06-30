@@ -1,15 +1,14 @@
 package output
 
 import (
-	"bytes"
-	"io"
-	"os"
 	"strings"
 	"testing"
+
+	"frank-remote-repo-deploy-agent/internal/testutil"
 )
 
 func TestWarningPrintsYellowWarningToStdout(t *testing.T) {
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		Warning("check %s", "config")
 	})
 
@@ -19,7 +18,7 @@ func TestWarningPrintsYellowWarningToStdout(t *testing.T) {
 }
 
 func TestErrorPrintsRedErrorToStderr(t *testing.T) {
-	errOut := captureStderr(t, func() {
+	errOut := testutil.CaptureStderr(t, func() {
 		Error("failed: %s", "boom")
 	})
 
@@ -34,7 +33,7 @@ func TestCommonLogLevelsPrintToStdout(t *testing.T) {
 		SetDebug(false)
 	})
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		Info("starting %s", "deploy")
 		Debug("cache %s", "hit")
 		Success("started")
@@ -54,48 +53,11 @@ func TestCommonLogLevelsPrintToStdout(t *testing.T) {
 func TestDebugDoesNotPrintByDefault(t *testing.T) {
 	SetDebug(false)
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		Debug("cache %s", "hit")
 	})
 
 	if out != "" {
 		t.Fatalf("expected no debug output by default, got %q", out)
 	}
-}
-
-func captureStdout(t *testing.T, fn func()) string {
-	t.Helper()
-	return captureOutput(t, &os.Stdout, fn)
-}
-
-func captureStderr(t *testing.T, fn func()) string {
-	t.Helper()
-	return captureOutput(t, &os.Stderr, fn)
-}
-
-func captureOutput(t *testing.T, target **os.File, fn func()) string {
-	t.Helper()
-	original := *target
-	read, write, err := os.Pipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	*target = write
-	defer func() {
-		*target = original
-	}()
-
-	fn()
-
-	if err := write.Close(); err != nil {
-		t.Fatal(err)
-	}
-	var out bytes.Buffer
-	if _, err := io.Copy(&out, read); err != nil {
-		t.Fatal(err)
-	}
-	if err := read.Close(); err != nil {
-		t.Fatal(err)
-	}
-	return out.String()
 }

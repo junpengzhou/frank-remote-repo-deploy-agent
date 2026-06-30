@@ -22,7 +22,7 @@ Use `--scripts-dir` when scripts live somewhere other than `scripts/`. Use `--dr
 
 语言：[English](README.md) | [中文](README.zh-CN.md)
 
-`salt-agent` 是一个面向 Salt 风格 Java 发布流程的一次性 Go CLI。它会拉取配置好的代码仓库，切换到目标环境分支，按 Maven 缓存判断构建发生变化的依赖模块，构建本次请求发布的主模块，准备 staging 目录，通过 `rsync --delete` 同步到远端主机，重启远端服务，并按配置查看远端日志。
+`salt-agent` 是一个面向 Salt 风格 Java 发布流程的一次性 Go CLI。它会拉取配置好的代码仓库，切换到目标环境分支，按 Maven 缓存判断需要构建的模块，准备 staging 目录，通过 `rsync --delete` 同步到远端主机，重启远端服务，并按配置查看远端日志。
 
 ## 构建
 
@@ -108,7 +108,7 @@ rsync:
 
 ## 行为
 
-- 依赖缓存：在配置的 JSON 缓存文件中保存 `{module, branch, commit}`。如果 commit 没有变化，会跳过依赖模块的 `mvn install`。
+- 构建缓存：在配置的 JSON 缓存文件中保存 `{module, branch, commit}`。未变化的依赖模块会跳过 `mvn install`；只有所有依赖模块和主模块都命中缓存时，主模块才会跳过 `mvn install`。
 - 调试输出：普通部署默认不输出详细命令和 POM 维护日志。使用 `--debug` 输出 `[cmd]`、`[pom]` 和缓存跳过等细节。`--dry-run` 仍会输出命令，因为它是命令预览模式。
 - Maven 安全性：所有 Maven install 步骤都会使用跨进程目录锁，避免并发写入同一个本地仓库。
 - 同模块抢占：同一个模块启动新的部署时，会抢占旧的部署任务。旧任务会在下一个阶段边界退出。

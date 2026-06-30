@@ -2,7 +2,7 @@
 
 Languages: [English](README.md) | [中文](README.zh-CN.md)
 
-`salt-agent` is a one-shot Go CLI for Salt-style Java deployments. It checks out configured repositories, switches them to the environment branch, builds changed dependency modules with Maven cache awareness, builds the requested main module, prepares a staging directory, syncs it to the remote host with `rsync --delete`, restarts the remote service, and prints remote logs.
+`salt-agent` is a one-shot Go CLI for Salt-style Java deployments. It checks out configured repositories, switches them to the environment branch, builds changed modules with Maven cache awareness, prepares a staging directory, syncs it to the remote host with `rsync --delete`, restarts the remote service, and prints remote logs.
 
 ## Build
 
@@ -109,7 +109,7 @@ rsync:
 
 ## Behavior
 
-- Dependency cache: stores `{module, branch, commit}` in the configured JSON cache. If the commit did not change, dependency `mvn install` is skipped.
+- Build cache: stores `{module, branch, commit}` in the configured JSON cache. Unchanged dependencies skip `mvn install`; the main module skips `mvn install` only when every dependency and the main module are cache hits.
 - Debug output: normal deploys keep verbose command and POM maintenance logs quiet. Use `--debug` to print `[cmd]`, `[pom]`, and cache skip details. `--dry-run` still prints commands because it is a command preview mode.
 - Maven safety: all Maven install steps use a cross-process directory lock to avoid concurrent writes to the same local repository.
 - Same-module preemption: starting a new deployment for the same module supersedes the older run. The older run exits at the next stage boundary.

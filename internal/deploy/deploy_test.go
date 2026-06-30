@@ -2,10 +2,8 @@ package deploy
 
 import (
 	"archive/zip"
-	"bytes"
 	"context"
 	"errors"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -14,10 +12,12 @@ import (
 	"testing"
 	"time"
 
+	"frank-remote-repo-deploy-agent/internal/cache"
 	"frank-remote-repo-deploy-agent/internal/config"
 	"frank-remote-repo-deploy-agent/internal/lock"
 	"frank-remote-repo-deploy-agent/internal/output"
 	"frank-remote-repo-deploy-agent/internal/runner"
+	"frank-remote-repo-deploy-agent/internal/testutil"
 )
 
 func TestEnsurePomModuleOnlyPrintsPomLogInDebugMode(t *testing.T) {
@@ -69,7 +69,7 @@ func TestMonitorStartupWaitsForHealthThenPrintsTail(t *testing.T) {
 		Runner: run,
 	}
 
-	captureOutput := captureStdout(t, func() {
+	captureOutput := testutil.CaptureStdout(t, func() {
 		err := d.monitorStartup(context.Background(), config.Module{
 			LogFile:       "/data/logs/app.log",
 			HealthURL:     server.URL,
@@ -98,7 +98,7 @@ func TestMonitorStartupSuggestsManualCheckWhenOnlyLogFileConfigured(t *testing.T
 		Runner: run,
 	}
 
-	captureOutput := captureStdout(t, func() {
+	captureOutput := testutil.CaptureStdout(t, func() {
 		err := d.monitorStartup(context.Background(), config.Module{
 			LogFile: "/data/logs/app.log",
 		}, Options{TailLines: 10})
@@ -128,7 +128,7 @@ func TestMonitorStartupPrintsSuccessWhenHealthHasNoLogFile(t *testing.T) {
 	defer server.Close()
 	d := &Deployer{}
 
-	captureOutput := captureStdout(t, func() {
+	captureOutput := testutil.CaptureStdout(t, func() {
 		err := d.monitorStartup(context.Background(), config.Module{
 			HealthURL:     server.URL,
 			HealthTimeout: 100 * time.Millisecond,
@@ -200,7 +200,7 @@ func TestDeployOnePrintsDebugContextForCheckoutArtifactAndRsync(t *testing.T) {
 		},
 	}, run, run, nil)
 
-	logs := captureStdout(t, func() {
+	logs := testutil.CaptureStdout(t, func() {
 		err := d.deployOne(context.Background(), Options{Env: "demo"}, "ifintech-im-export")
 		if err != nil {
 			t.Fatalf("deployOne returned error: %v", err)
@@ -216,6 +216,60 @@ func TestDeployOnePrintsDebugContextForCheckoutArtifactAndRsync(t *testing.T) {
 	}
 	if !strings.Contains(logs, "rsync module=ifintech-im-export source="+filepath.Join(root, "staging", "ifintech-im-export")+" remotePath=/data/app/") {
 		t.Fatalf("expected rsync debug context, got %q", logs)
+	}
+}
+
+func TestDeployOneSkipsMavenWhenDependenciesAndMainModuleAreCacheHits(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "pom.xml"), []byte(`<project><modules></modules></project>`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := makeWar(filepath.Join(root, "example-app", "target", "app.war")); err != nil {
+		t.Fatal(err)
+	}
+	store, err := cache.Load(filepath.Join(root, "cache", "build-cache.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	store.Update("example-common", "test", "abc123")
+	store.Update("example-app", "test", "abc123")
+	run := &recordingRunner{}
+	d := New(deployTestConfig(root), run, run, store)
+
+	if err := d.deployOne(context.Background(), Options{Env: "demo"}, "example-app"); err != nil {
+		t.Fatalf("deployOne returned error: %v", err)
+	}
+
+	if got := countCommands(run.commands, "mvn"); got != 0 {
+		t.Fatalf("expected no maven commands on full cache hit, got %d commands: %#v", got, run.commands)
+	}
+	if got := countCommands(run.commands, "rsync"); got != 1 {
+		t.Fatalf("expected rsync to continue after skipped build, got %d commands: %#v", got, run.commands)
+	}
+	if got := countCommands(run.commands, "ssh"); got != 1 {
+		t.Fatalf("expected restart to continue after skipped build, got %d commands: %#v", got, run.commands)
+	}
+}
+
+func TestDeployOneBuildsMainModuleWhenDependencyCacheMisses(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "pom.xml"), []byte(`<project><modules></modules></project>`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store, err := cache.Load(filepath.Join(root, "cache", "build-cache.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	store.Update("example-app", "test", "abc123")
+	run := &recordingRunner{}
+	d := New(deployTestConfig(root), run, run, store)
+
+	if err := d.deployOne(context.Background(), Options{Env: "demo"}, "example-app"); err != nil {
+		t.Fatalf("deployOne returned error: %v", err)
+	}
+
+	if got := countCommands(run.commands, "mvn"); got != 2 {
+		t.Fatalf("expected dependency and main maven commands, got %d commands: %#v", got, run.commands)
 	}
 }
 
@@ -236,38 +290,47 @@ func ensurePomModuleOutput(t *testing.T, debug bool, module string) string {
 	}}
 	d.Locks = lock.NewManager(d.Config.LockDir)
 
-	return captureStdout(t, func() {
+	return testutil.CaptureStdout(t, func() {
 		if err := d.ensurePomModule(context.Background(), module); err != nil {
 			t.Fatalf("ensurePomModule returned error: %v", err)
 		}
 	})
 }
 
-func captureStdout(t *testing.T, fn func()) string {
-	t.Helper()
-	original := os.Stdout
-	read, write, err := os.Pipe()
-	if err != nil {
-		t.Fatal(err)
+func deployTestConfig(root string) *config.Config {
+	return &config.Config{
+		BuildRoot:  root,
+		StagingDir: filepath.Join(root, "staging"),
+		LockDir:    filepath.Join(root, "locks"),
+		Maven:      config.MavenConfig{Executable: "mvn"},
+		SSH:        config.SSHConfig{User: "root", Host: "127.0.0.1"},
+		Environments: map[string]config.EnvConfig{
+			"demo": {Branch: "test"},
+		},
+		Modules: map[string]config.Module{
+			"example-common": {
+				Repo:      "git@example.com/common.git",
+				Packaging: "jar",
+			},
+			"example-app": {
+				Repo:         "git@example.com/app.git",
+				Packaging:    "war",
+				Dependencies: []string{"example-common"},
+				RemotePath:   "/data/app/",
+				Container:    "example-app",
+			},
+		},
 	}
-	os.Stdout = write
-	defer func() {
-		os.Stdout = original
-	}()
+}
 
-	fn()
-
-	if err := write.Close(); err != nil {
-		t.Fatal(err)
+func countCommands(commands []runner.Command, name string) int {
+	count := 0
+	for _, cmd := range commands {
+		if cmd.Name == name {
+			count++
+		}
 	}
-	var out bytes.Buffer
-	if _, err := io.Copy(&out, read); err != nil {
-		t.Fatal(err)
-	}
-	if err := read.Close(); err != nil {
-		t.Fatal(err)
-	}
-	return out.String()
+	return count
 }
 
 type recordingRunner struct {

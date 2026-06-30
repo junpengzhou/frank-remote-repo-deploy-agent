@@ -1,9 +1,7 @@
 package gitops
 
 import (
-	"bytes"
 	"context"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +9,7 @@ import (
 
 	"frank-remote-repo-deploy-agent/internal/output"
 	"frank-remote-repo-deploy-agent/internal/runner"
+	"frank-remote-repo-deploy-agent/internal/testutil"
 )
 
 func TestEnsureRepoSkipsFetchForExistingRepo(t *testing.T) {
@@ -59,7 +58,7 @@ func TestCheckoutPrintsPostCheckoutEvidenceInDebugMode(t *testing.T) {
 	run := &recordingRunner{outputs: []string{"7be52ff\n", ""}}
 	client := Client{Runner: run, Output: run}
 
-	logs := captureStdout(t, func() {
+	logs := testutil.CaptureStdout(t, func() {
 		if err := client.Checkout(context.Background(), "/workspace/example", "test"); err != nil {
 			t.Fatalf("Checkout returned error: %v", err)
 		}
@@ -68,33 +67,6 @@ func TestCheckoutPrintsPostCheckoutEvidenceInDebugMode(t *testing.T) {
 	if !strings.Contains(logs, "checkout synced dir=/workspace/example branch=test head=7be52ff status=clean") {
 		t.Fatalf("expected checkout evidence log, got %q", logs)
 	}
-}
-
-func captureStdout(t *testing.T, fn func()) string {
-	t.Helper()
-	original := os.Stdout
-	read, write, err := os.Pipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	os.Stdout = write
-	defer func() {
-		os.Stdout = original
-	}()
-
-	fn()
-
-	if err := write.Close(); err != nil {
-		t.Fatal(err)
-	}
-	var out bytes.Buffer
-	if _, err := io.Copy(&out, read); err != nil {
-		t.Fatal(err)
-	}
-	if err := read.Close(); err != nil {
-		t.Fatal(err)
-	}
-	return out.String()
 }
 
 type recordingRunner struct {
