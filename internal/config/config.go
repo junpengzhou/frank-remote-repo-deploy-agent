@@ -38,19 +38,18 @@ type JDKConfig struct {
 }
 
 type SSHConfig struct {
-	User    string `yaml:"user"`
-	Host    string `yaml:"host"`
-	Port    int    `yaml:"port"`
-	KeyFile string `yaml:"keyFile"`
+	User           string        `yaml:"user"`
+	Host           string        `yaml:"host"`
+	Port           int           `yaml:"port"`
+	KeyFile        string        `yaml:"keyFile"`
+	ConnectTimeout time.Duration `yaml:"connectTimeout"`
 }
 
 type RsyncConfig struct {
-	Executable     string        `yaml:"executable"`
-	Options        []string      `yaml:"options"`
-	ConnectTimeout time.Duration `yaml:"connectTimeout"`
-	Timeout        time.Duration `yaml:"timeout"`
-	Retries        int           `yaml:"retries"`
-	RetryDelay     time.Duration `yaml:"retryDelay"`
+	Executable string        `yaml:"executable"`
+	Options    []string      `yaml:"options"`
+	Retries    int           `yaml:"retries"`
+	RetryDelay time.Duration `yaml:"retryDelay"`
 }
 
 type EnvConfig struct {
@@ -141,11 +140,8 @@ func (c *Config) Validate() error {
 	if c.SSH.User == "" || c.SSH.Host == "" {
 		problems = append(problems, "ssh.user and ssh.host are required")
 	}
-	if c.Rsync.ConnectTimeout < 0 {
-		problems = append(problems, "rsync.connectTimeout must be greater than or equal to 0")
-	}
-	if c.Rsync.Timeout < 0 {
-		problems = append(problems, "rsync.timeout must be greater than or equal to 0")
+	if c.SSH.ConnectTimeout < 0 {
+		problems = append(problems, "ssh.connectTimeout must be greater than or equal to 0")
 	}
 	if c.Rsync.Retries < 0 {
 		problems = append(problems, "rsync.retries must be greater than or equal to 0")

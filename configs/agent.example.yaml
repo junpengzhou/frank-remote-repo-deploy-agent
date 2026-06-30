@@ -19,6 +19,8 @@ ssh:
   host: 10.0.0.1
   port: 22
   keyFile: /home/Salt/.ssh/id_rsa
+  # connectTimeout is passed to SSH as ConnectTimeout.
+  connectTimeout: 10s
 
 rsync:
   executable: rsync
@@ -26,10 +28,6 @@ rsync:
     - -az
     - --delete
     - --partial
-  # connectTimeout applies to both rsync --contimeout and ssh ConnectTimeout.
-  connectTimeout: 10s
-  # timeout applies to rsync I/O idle timeout during transfer.
-  timeout: 60s
   # retries is the number of extra rsync attempts after the first failure.
   retries: 3
   retryDelay: 5s

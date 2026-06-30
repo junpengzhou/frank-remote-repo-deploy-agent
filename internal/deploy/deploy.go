@@ -182,8 +182,7 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 	syncCmd := rsync.BuildCommand(staging, module.RemotePath, rsync.Options{
 		Executable:            d.Config.Rsync.Executable,
 		Options:               d.Config.Rsync.Options,
-		ConnectTimeoutSeconds: durationSeconds(d.Config.Rsync.ConnectTimeout),
-		TimeoutSeconds:        durationSeconds(d.Config.Rsync.Timeout),
+		ConnectTimeoutSeconds: durationSeconds(d.Config.SSH.ConnectTimeout),
 		SSH:                   d.Config.SSH,
 	})
 	output.Debug("rsync module=%s source=%s remotePath=%s", moduleName, staging, module.RemotePath)

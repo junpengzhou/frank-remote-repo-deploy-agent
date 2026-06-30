@@ -91,16 +91,15 @@ modules:
 	}
 }
 
-func TestLoadFileReadsRsyncTimeoutAndRetrySettings(t *testing.T) {
+func TestLoadFileReadsSSHConnectTimeoutAndRsyncRetrySettings(t *testing.T) {
 	path := writeConfig(t, `
 workspace: /tmp/salt-agent
 cacheFile: /tmp/salt-agent/cache.json
 ssh:
   user: deploy
   host: 10.0.0.2
-rsync:
   connectTimeout: 10s
-  timeout: 60s
+rsync:
   retries: 3
   retryDelay: 5s
 environments:
@@ -117,11 +116,8 @@ modules:
 	if err != nil {
 		t.Fatalf("LoadFile returned error: %v", err)
 	}
-	if cfg.Rsync.ConnectTimeout != 10*time.Second {
-		t.Fatalf("expected connect timeout 10s, got %v", cfg.Rsync.ConnectTimeout)
-	}
-	if cfg.Rsync.Timeout != 60*time.Second {
-		t.Fatalf("expected timeout 60s, got %v", cfg.Rsync.Timeout)
+	if cfg.SSH.ConnectTimeout != 10*time.Second {
+		t.Fatalf("expected ssh connect timeout 10s, got %v", cfg.SSH.ConnectTimeout)
 	}
 	if cfg.Rsync.Retries != 3 {
 		t.Fatalf("expected 3 retries, got %d", cfg.Rsync.Retries)

@@ -42,7 +42,7 @@ func TestCheckoutForceSyncsRemoteBranch(t *testing.T) {
 		{Name: "git", Args: []string{"fetch", "origin", "+refs/heads/test:refs/remotes/origin/test", "--prune"}, Dir: "/workspace/example"},
 		{Name: "git", Args: []string{"checkout", "-B", "test", "origin/test"}, Dir: "/workspace/example", SuppressStdout: true},
 		{Name: "git", Args: []string{"reset", "--hard", "origin/test"}, Dir: "/workspace/example"},
-		{Name: "git", Args: []string{"clean", "-ffdx"}, Dir: "/workspace/example", SuppressStdout: true},
+		{Name: "git", Args: []string{"clean", "-ffd"}, Dir: "/workspace/example", SuppressStdout: true},
 		{Name: "git", Args: []string{"rev-parse", "HEAD"}, Dir: "/workspace/example"},
 		{Name: "git", Args: []string{"status", "--short"}, Dir: "/workspace/example"},
 	}
