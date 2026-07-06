@@ -58,15 +58,12 @@ type EnvConfig struct {
 }
 
 type Module struct {
-	Repo          string        `yaml:"repo"`
-	Packaging     string        `yaml:"packaging"`
-	Dependencies  []string      `yaml:"dependencies"`
-	RemotePath    string        `yaml:"remotePath"`
-	Container     string        `yaml:"container"`
-	LogFile       string        `yaml:"logFile"`
-	HealthURL     string        `yaml:"healthUrl"`
-	HealthTimeout time.Duration `yaml:"healthTimeout"`
-	RemoteScript  string        `yaml:"remoteScript"`
+	Repo         string   `yaml:"repo"`
+	Packaging    string   `yaml:"packaging"`
+	Dependencies []string `yaml:"dependencies"`
+	RemotePath   string   `yaml:"remotePath"`
+	Container    string   `yaml:"container"`
+	RemoteScript string   `yaml:"remoteScript"`
 }
 
 func LoadFile(path string) (*Config, error) {
@@ -112,10 +109,6 @@ func applyDefaults(cfg *Config) {
 		// 如果没有配置默认采用 war 形式
 		if module.Packaging == "" {
 			module.Packaging = "war"
-		}
-		// 如果没有配置默认采用为2分钟的健康检查超时
-		if module.HealthTimeout == 0 {
-			module.HealthTimeout = 2 * time.Minute
 		}
 		module.Packaging = strings.ToLower(module.Packaging)
 		cfg.Modules[name] = module

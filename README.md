@@ -79,15 +79,13 @@ Copy `configs/agent.example.yaml` to `configs/agent.yaml` and adjust:
 - `ssh.user`, `ssh.host`, `ssh.port`, `ssh.keyFile`, `ssh.connectTimeout`
 - `rsync.options`, `rsync.retries`, `rsync.retryDelay`
 - `environments.<name>.branch`, `environments.<name>.mavenProfile`
-- `modules.<name>.repo`, `dependencies`, `remotePath`, `container`, `logFile`, `healthUrl`, `healthTimeout`, `remoteScript`
+- `modules.<name>.repo`, `dependencies`, `remotePath`, `container`, `remoteScript`
 
 `buildRoot` should be the directory containing the Maven aggregator `pom.xml`. Module repositories are cloned into `buildRoot/<module>`, matching normal Maven `<module>example-frank</module>` layout.
 
 When `environments.<name>.mavenProfile` is configured, Maven install commands for that environment include `-P <mavenProfile>`.
 
 Dependency-only modules only need `repo` and `packaging`. Requested deployment modules must define `remotePath` and either `container` or `remoteScript`.
-
-`modules.<name>.healthTimeout` defaults to `2m` and accepts Go duration values such as `30s`, `2m`, or `5m`.
 
 For unstable networks, configure the SSH connection timeout and rsync retries:
 
@@ -115,5 +113,3 @@ rsync:
 - Same-module preemption: starting a new deployment for the same module supersedes the older run. The older run exits at the next stage boundary.
 - Aggregator POM maintenance: after each repository checkout, the agent ensures `buildRoot/pom.xml` contains `<module>module-name</module>` and appends it to `<modules>` when missing.
 - Remote sync: WAR files are extracted locally, then synchronized over SSH with `rsync --delete` so removed classes and files are also removed remotely. SSH can use a configured connection timeout, and rsync can retry transient failures.
-- Logs: when `healthUrl` is not configured, remote logs are not tailed automatically. The agent prints an English suggestion so operators can log in to the server and check startup status manually.
-- Health checks: when `healthUrl` is configured, the agent prints an English startup wait message, polls until HTTP 200 or `healthTimeout`, then prints remote logs once with `tail -fn` if `logFile` is configured. If `healthUrl` is configured without `logFile`, success prints an English message indicating the app started and that logs are not configured; timeout prints an English unknown-status message.

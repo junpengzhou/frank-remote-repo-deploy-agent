@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"frank-remote-repo-deploy-agent/internal/config"
-	"frank-remote-repo-deploy-agent/internal/constants"
 	"frank-remote-repo-deploy-agent/internal/runner"
 )
 
@@ -22,13 +21,6 @@ func ScriptCommandWithUser(ssh config.SSHConfig, script, operator string) runner
 
 func DockerRestartCommand(ssh config.SSHConfig, container string) runner.Command {
 	return sshCommand(ssh, "docker restart "+shellQuote(container))
-}
-
-func TailCommand(ssh config.SSHConfig, logFile string, lines int) runner.Command {
-	if lines <= 0 {
-		lines = constants.DefaultTailLines
-	}
-	return sshCommand(ssh, fmt.Sprintf("tail -n %d %s", lines, shellQuote(logFile)))
 }
 
 func sshCommand(ssh config.SSHConfig, remoteCommand string) runner.Command {
