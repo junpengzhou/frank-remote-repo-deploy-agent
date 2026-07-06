@@ -1,0 +1,17 @@
+{
+  "role": "tester",
+  "env_name": "新DEMO环境60.236",
+  "webhooks": [
+    {
+      "name": "Team3",
+      "url": "https://prod-82.southeastasia.logic.azure.com:443/workflows/7fb91f1d8bc147caa44ff6c69e3e709b/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=HFJfiLomEF9Nx3YAfP4nQDzU1ATV0-EXDQ6nSRLKtdo",
+      "description": "只有🐂🐎的Team3群聊",
+      "members": [
+        {
+          "name": "所有人",
+          "id": "everyone"
+        }
+      ]
+    }
+  ]
+}
