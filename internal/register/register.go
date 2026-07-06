@@ -49,14 +49,14 @@ func (r Registrar) Run(ctx context.Context, opts Options) error {
 	if r.Client == nil {
 		return errors.New("client is required")
 	}
-	// 参数校验
+	// validate the options
 	if err := validate(opts); err != nil {
 		return err
 	}
 	defer func() {
 		_ = r.Client.Close()
 	}()
-
+	// upload public key
 	if opts.PublicKeyPath != "" {
 		if err := r.uploadPublicKey(ctx, opts.PublicKeyPath); err != nil {
 			return err
@@ -65,13 +65,16 @@ func (r Registrar) Run(ctx context.Context, opts Options) error {
 			return fmt.Errorf("verify password ssh connection: %w", err)
 		}
 	}
+	// install remote server /etc/profile.d/salt-agent.sh
 	if err := r.Client.Run(ctx, installScript(opts.RemotePath)); err != nil {
 		return fmt.Errorf("run remote install script: %w", err)
 	}
+	// sync remote server scripts
 	remoteScripts := targetScriptsPath(opts)
 	if err := r.syncScripts(ctx, opts.ScriptsDir, remoteScripts); err != nil {
 		return err
 	}
+	// all scripts should be readable, executable
 	if err := r.Client.Run(ctx, "chmod -R a+rx "+shellQuote(remoteScripts)); err != nil {
 		return fmt.Errorf("chmod remote scripts: %w", err)
 	}
