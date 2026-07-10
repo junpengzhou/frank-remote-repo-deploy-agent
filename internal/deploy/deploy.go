@@ -31,7 +31,7 @@ type Options struct {
 
 type Deployer struct {
 	Config *config.Config
-	// Runner 负责有实时输出的命令；Output 用于 git rev-parse 这类需要拿返回值的命令。
+	// Runner handles commands with live output. Output is used for commands that need a return value.
 	Runner runner.Runner
 	Output gitops.OutputRunner
 	Cache  *cache.Store
@@ -63,7 +63,7 @@ func (d *Deployer) Run(ctx context.Context, opts Options) error {
 	sem := make(chan struct{}, opts.Concurrency)
 	errs := make(chan error, len(opts.Modules))
 	var wg sync.WaitGroup
-	// 多个主模块可以并发部署；共享资源通过内部锁保护。
+
 	for _, module := range opts.Modules {
 		module := module
 		wg.Add(1)
@@ -87,7 +87,6 @@ func (d *Deployer) Run(ctx context.Context, opts Options) error {
 }
 
 func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName string) error {
-	// 获取同模块 lease 后，如果后续又有人部署同一模块，本次任务会在阶段边界快速退出。
 	lease, err := d.Locks.AcquireModule(moduleName)
 	if err != nil {
 		return stageErr(moduleName, "acquire module lock", err)
@@ -103,11 +102,11 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 	if module.Container == "" && module.RemoteScript == "" {
 		return stageErr(moduleName, "validate deploy target", fmt.Errorf("container or remoteScript is required for requested module"))
 	}
+
 	allModules := append([]string{}, module.Dependencies...)
 	allModules = append(allModules, moduleName)
 	git := gitops.Client{Runner: d.Runner}
 
-	// 先把依赖模块和主模块都拉到本地，并确保聚合 pom.xml 里有对应 module。
 	for _, name := range allModules {
 		if err := lease.Check(); err != nil {
 			return stageErr(moduleName, "superseded", err)
@@ -126,8 +125,8 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 		}
 	}
 
-	// 标识是否所有模块都有命中缓存
 	allDependenciesCached := true
+	moduleSnapshot := make(map[string]string, len(module.Dependencies)+1)
 	for _, dep := range module.Dependencies {
 		if err := lease.Check(); err != nil {
 			return stageErr(moduleName, "superseded", err)
@@ -136,13 +135,14 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 		if err != nil {
 			return stageErr(dep, "read git HEAD", err)
 		}
-		// 基础模块用 HEAD 缓存判断是否需要重新 install，减少无意义构建。
+		moduleSnapshot[dep] = commit
+
 		dependencyChanged := d.Cache == nil || d.Cache.Changed(dep, branch, commit)
 		if !dependencyChanged {
 			output.Info("cache hit %s@%s unchanged (%s), skip install", dep, branch, commit)
 			continue
 		}
-		// 有模块没命中缓存，则重新 install 模块
+
 		allDependenciesCached = false
 		if err := d.withMavenLock(ctx, func() error {
 			cmd := maven.BuildInstallCommand(d.Config.BuildRoot, dep, false, d.mavenOptions(opts.Env))
@@ -161,19 +161,22 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 	if err := lease.Check(); err != nil {
 		return stageErr(moduleName, "superseded", err)
 	}
-	// 获取主模块 HEAD
+	// Get Main Module Commit HEAD
 	mainCommit, err := gitops.HeadCommit(ctx, d.Output, d.moduleDir(moduleName))
 	if err != nil {
 		return stageErr(moduleName, "read git HEAD", err)
 	}
-	// 判断主模块是否有变更
+	moduleSnapshot[moduleName] = mainCommit
+	// Main module have changes?
 	mainChanged := d.Cache == nil || d.Cache.Changed(moduleName, branch, mainCommit)
-	// 所有模块都命中缓存且主模块没有变更，则跳过 install
-	if allDependenciesCached && !mainChanged {
+	// Main module's dependencies snapshot have changes?
+	mainSnapshotChanged := d.Cache == nil || d.Cache.SnapshotChanged(moduleName, branch, moduleSnapshot)
+
+	// Main and it's module's dependencies snapshot not have changes, skip install
+	if allDependenciesCached && !mainChanged && !mainSnapshotChanged {
 		output.Info("cache hit %s@%s unchanged (%s), skip install", moduleName, branch, mainCommit)
 	} else {
 		if err := d.withMavenLock(ctx, func() error {
-			// 主模块依赖任意重新编译时也需要重新打包，确保产物包含最新依赖。
 			cmd := maven.BuildInstallCommand(d.Config.BuildRoot, moduleName, false, d.mavenOptions(opts.Env))
 			return d.Runner.Run(ctx, cmd)
 		}); err != nil {
@@ -181,6 +184,7 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 		}
 		if d.Cache != nil {
 			d.Cache.Update(moduleName, branch, mainCommit)
+			d.Cache.UpdateSnapshot(moduleName, branch, moduleSnapshot)
 			if err := d.Cache.Save(); err != nil {
 				return stageErr(moduleName, "save cache", err)
 			}
@@ -213,7 +217,6 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 	}
 
 	if module.RemoteScript != "" {
-		// 如果配置了自定义远端脚本，优先交给脚本处理重启、通知等特殊动作。
 		if err := d.Runner.Run(ctx, remote.ScriptCommandWithUser(d.Config.SSH, module.RemoteScript, opts.Operator)); err != nil {
 			return stageErr(moduleName, "run remote script", err)
 		}
@@ -270,7 +273,6 @@ func durationSeconds(d time.Duration) int {
 }
 
 func (d *Deployer) withMavenLock(ctx context.Context, fn func() error) error {
-	// Maven install 会写本地仓库；并发写同一个 .m2 容易互相影响，所以统一串行化。
 	lease, err := d.Locks.AcquireExclusive(ctx, "maven-install", 500*time.Millisecond)
 	if err != nil {
 		return err
@@ -282,7 +284,6 @@ func (d *Deployer) withMavenLock(ctx context.Context, fn func() error) error {
 }
 
 func (d *Deployer) ensurePomModule(ctx context.Context, module string) error {
-	// 多个部署进程可能同时发现新模块，POM 更新必须加锁避免互相覆盖。
 	lease, err := d.Locks.AcquireExclusive(ctx, "pom-modules", 200*time.Millisecond)
 	if err != nil {
 		return err
@@ -321,7 +322,6 @@ func stageErr(module, stage string, err error) error {
 }
 
 func EnsureDirs(cfg *config.Config) error {
-	// 启动时先创建本地目录，后续步骤失败时就能更聚焦在 git/mvn/ssh 等真实问题上。
 	for _, dir := range []string{cfg.Workspace, cfg.BuildRoot, cfg.StagingDir, cfg.LockDir, filepath.Dir(cfg.CacheFile)} {
 		if dir == "" || dir == "." {
 			continue

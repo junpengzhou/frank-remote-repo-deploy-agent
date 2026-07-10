@@ -14,15 +14,27 @@ type Entry struct {
 	Commit string `json:"commit"`
 }
 
+type Snapshot struct {
+	MainModule string            `json:"mainModule"`
+	Branch     string            `json:"branch"`
+	Commits    map[string]string `json:"commits"`
+}
+
 type Store struct {
 	path string
 	mu   sync.Mutex
-	// key 形如 module@branch，value 记录该分支上一次成功 install 的 HEAD。
+	// key format: module@branch
 	Entries map[string]Entry `json:"entries"`
+	// key format: mainModule@branch
+	Snapshots map[string]Snapshot `json:"snapshots,omitempty"`
 }
 
 func Load(path string) (*Store, error) {
-	store := &Store{path: path, Entries: map[string]Entry{}}
+	store := &Store{
+		path:      path,
+		Entries:   map[string]Entry{},
+		Snapshots: map[string]Snapshot{},
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -39,11 +51,13 @@ func Load(path string) (*Store, error) {
 	if store.Entries == nil {
 		store.Entries = map[string]Entry{}
 	}
+	if store.Snapshots == nil {
+		store.Snapshots = map[string]Snapshot{}
+	}
 	return store, nil
 }
 
 func (s *Store) Changed(module, branch, commit string) bool {
-	// 只要 commit 不同就认为基础模块需要重新 mvn install。
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	entry, ok := s.Entries[key(module, branch)]
@@ -54,6 +68,38 @@ func (s *Store) Update(module, branch, commit string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.Entries[key(module, branch)] = Entry{Module: module, Branch: branch, Commit: commit}
+}
+
+func (s *Store) SnapshotChanged(mainModule, branch string, commits map[string]string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	snapshot, ok := s.Snapshots[key(mainModule, branch)]
+	if !ok {
+		return true
+	}
+	if len(snapshot.Commits) != len(commits) {
+		return true
+	}
+	for module, commit := range commits {
+		if snapshot.Commits[module] != commit {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Store) UpdateSnapshot(mainModule, branch string, commits map[string]string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cloned := make(map[string]string, len(commits))
+	for module, commit := range commits {
+		cloned[module] = commit
+	}
+	s.Snapshots[key(mainModule, branch)] = Snapshot{
+		MainModule: mainModule,
+		Branch:     branch,
+		Commits:    cloned,
+	}
 }
 
 func (s *Store) Save() error {
@@ -70,7 +116,6 @@ func (s *Store) Save() error {
 	if err := os.WriteFile(tmp, data, 0o600); err != nil {
 		return err
 	}
-	// 先写临时文件再 rename，避免部署进程中断时留下半截 JSON。
 	return os.Rename(tmp, s.path)
 }
 

@@ -118,6 +118,10 @@ func TestDeployOneSkipsMavenWhenDependenciesAndMainModuleAreCacheHits(t *testing
 	}
 	store.Update("example-common", "test", "abc123")
 	store.Update("example-app", "test", "abc123")
+	store.UpdateSnapshot("example-app", "test", map[string]string{
+		"example-common": "abc123",
+		"example-app":    "abc123",
+	})
 	run := &recordingRunner{}
 	d := New(deployTestConfig(root), run, run, store)
 
@@ -155,6 +159,40 @@ func TestDeployOneBuildsMainModuleWhenDependencyCacheMisses(t *testing.T) {
 
 	if got := countCommands(run.commands, "mvn"); got != 2 {
 		t.Fatalf("expected dependency and main maven commands, got %d commands: %#v", got, run.commands)
+	}
+}
+
+func TestDeployOneBuildsMainModuleWhenOwnDependencySnapshotIsStale(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "pom.xml"), []byte(`<project><modules></modules></project>`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := makeWar(filepath.Join(root, "example-app", "target", "app.war")); err != nil {
+		t.Fatal(err)
+	}
+	store, err := cache.Load(filepath.Join(root, "cache", "build-cache.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	store.Update("example-common", "test", "def456")
+	store.Update("example-app", "test", "abc123")
+	run := &recordingRunner{
+		commits: map[string]string{
+			filepath.Join(root, "example-common"): "def456",
+			filepath.Join(root, "example-app"):    "abc123",
+		},
+	}
+	d := New(deployTestConfig(root), run, run, store)
+
+	if err := d.deployOne(context.Background(), Options{Env: "demo"}, "example-app"); err != nil {
+		t.Fatalf("deployOne returned error: %v", err)
+	}
+
+	if got := countCommands(run.commands, "mvn"); got != 1 {
+		t.Fatalf("expected main module rebuild only, got %d commands: %#v", got, run.commands)
+	}
+	if got := findMavenModules(run.commands); len(got) != 1 || got[0] != "example-app" {
+		t.Fatalf("expected only example-app to rebuild, got %#v", got)
 	}
 }
 
@@ -220,6 +258,7 @@ func countCommands(commands []runner.Command, name string) int {
 
 type recordingRunner struct {
 	commands []runner.Command
+	commits  map[string]string
 }
 
 func (r *recordingRunner) Run(_ context.Context, cmd runner.Command) error {
@@ -233,8 +272,24 @@ func (r *recordingRunner) Run(_ context.Context, cmd runner.Command) error {
 	return nil
 }
 
-func (r *recordingRunner) Output(_ context.Context, _ runner.Command) (string, error) {
+func (r *recordingRunner) Output(_ context.Context, cmd runner.Command) (string, error) {
+	if len(r.commits) > 0 {
+		if commit, ok := r.commits[cmd.Dir]; ok {
+			return commit + "\n", nil
+		}
+	}
 	return "abc123\n", nil
+}
+
+func findMavenModules(commands []runner.Command) []string {
+	var modules []string
+	for _, cmd := range commands {
+		if cmd.Name != "mvn" || len(cmd.Args) < 4 {
+			continue
+		}
+		modules = append(modules, cmd.Args[3])
+	}
+	return modules
 }
 
 type failingRunner struct {

@@ -29,6 +29,10 @@ func TestSaveAndLoadPersistsEntries(t *testing.T) {
 		t.Fatal(err)
 	}
 	store.Update("example-common", "test", "abc")
+	store.UpdateSnapshot("example-app", "test", map[string]string{
+		"example-common": "abc",
+		"example-app":    "main1",
+	})
 	if err := store.Save(); err != nil {
 		t.Fatal(err)
 	}
@@ -38,5 +42,35 @@ func TestSaveAndLoadPersistsEntries(t *testing.T) {
 	}
 	if loaded.Changed("example-common", "test", "abc") {
 		t.Fatal("expected persisted commit to be cache hit")
+	}
+	if loaded.SnapshotChanged("example-app", "test", map[string]string{
+		"example-common": "abc",
+		"example-app":    "main1",
+	}) {
+		t.Fatal("expected persisted snapshot to be cache hit")
+	}
+}
+
+func TestSnapshotChangedDetectsMissHitAndChangedDependency(t *testing.T) {
+	store, err := Load(filepath.Join(t.TempDir(), "cache.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := map[string]string{
+		"example-common": "abc",
+		"example-app":    "main1",
+	}
+	if !store.SnapshotChanged("example-app", "test", snapshot) {
+		t.Fatal("expected missing snapshot to be changed")
+	}
+	store.UpdateSnapshot("example-app", "test", snapshot)
+	if store.SnapshotChanged("example-app", "test", snapshot) {
+		t.Fatal("expected same snapshot to be cache hit")
+	}
+	if !store.SnapshotChanged("example-app", "test", map[string]string{
+		"example-common": "def",
+		"example-app":    "main1",
+	}) {
+		t.Fatal("expected changed dependency snapshot to be changed")
 	}
 }
