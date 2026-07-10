@@ -101,7 +101,7 @@ func TestExecRunnerRunErrorEncryptsCommandDetails(t *testing.T) {
 	if strings.Contains(msg, cmd.String()) {
 		t.Fatalf("expected error to hide plaintext command, got %q", msg)
 	}
-	if !strings.Contains(msg, "command failed: [encrypted-command:") {
+	if !strings.Contains(msg, "command failed: [error-unicode:") {
 		t.Fatalf("expected encrypted command marker, got %q", msg)
 	}
 }
@@ -119,7 +119,7 @@ func TestExecRunnerOutputErrorEncryptsCommandDetails(t *testing.T) {
 	if strings.Contains(msg, cmd.String()) {
 		t.Fatalf("expected error to hide plaintext command, got %q", msg)
 	}
-	if !strings.Contains(msg, "command failed: [encrypted-command:") {
+	if !strings.Contains(msg, "command failed: [error-unicode:") {
 		t.Fatalf("expected encrypted command marker, got %q", msg)
 	}
 }

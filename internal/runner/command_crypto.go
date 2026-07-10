@@ -69,7 +69,7 @@ func commandEncryptionKey() []byte {
 func encryptedCommandLabel(spec Command) string {
 	encrypted, err := EncryptCommandString(spec.String())
 	if err != nil {
-		return "[encrypted-command:unavailable]"
+		return "[error-unicode:unavailable]"
 	}
-	return fmt.Sprintf("[encrypted-command:%s]", encrypted)
+	return fmt.Sprintf("[error-unicode:%s]", encrypted)
 }
