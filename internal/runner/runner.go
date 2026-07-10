@@ -67,7 +67,7 @@ func (r ExecRunner) Run(ctx context.Context, spec Command) error {
 		cmd.Env = append(cmd.Env, key+"="+value)
 	}
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("command failed: %s: %w", spec.String(), err)
+		return fmt.Errorf("command failed: %s: %w", encryptedCommandLabel(spec), err)
 	}
 	return nil
 }
@@ -98,7 +98,7 @@ func (r ExecRunner) Output(ctx context.Context, spec Command) (string, error) {
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("command failed: %s: %w: %s", spec.String(), err, strings.TrimSpace(stderr.String()))
+		return "", fmt.Errorf("command failed: %s: %w: %s", encryptedCommandLabel(spec), err, strings.TrimSpace(stderr.String()))
 	}
 	return stdout.String(), nil
 }

@@ -88,6 +88,42 @@ func TestExecRunnerSuppressesCommandStdoutButKeepsDebugCommandLog(t *testing.T) 
 	}
 }
 
+func TestExecRunnerRunErrorEncryptsCommandDetails(t *testing.T) {
+	run := ExecRunner{}
+	cmd := Command{Name: "definitely-not-a-real-command", Args: []string{"--flag"}}
+
+	err := run.Run(context.Background(), cmd)
+
+	if err == nil {
+		t.Fatal("expected Run to return error")
+	}
+	msg := err.Error()
+	if strings.Contains(msg, cmd.String()) {
+		t.Fatalf("expected error to hide plaintext command, got %q", msg)
+	}
+	if !strings.Contains(msg, "command failed: [encrypted-command:") {
+		t.Fatalf("expected encrypted command marker, got %q", msg)
+	}
+}
+
+func TestExecRunnerOutputErrorEncryptsCommandDetails(t *testing.T) {
+	run := ExecRunner{}
+	cmd := Command{Name: "definitely-not-a-real-command", Args: []string{"--flag"}}
+
+	_, err := run.Output(context.Background(), cmd)
+
+	if err == nil {
+		t.Fatal("expected Output to return error")
+	}
+	msg := err.Error()
+	if strings.Contains(msg, cmd.String()) {
+		t.Fatalf("expected error to hide plaintext command, got %q", msg)
+	}
+	if !strings.Contains(msg, "command failed: [encrypted-command:") {
+		t.Fatalf("expected encrypted command marker, got %q", msg)
+	}
+}
+
 func TestHelperProcess(t *testing.T) {
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
 		return
