@@ -31,6 +31,9 @@ go.work.sum
 .idea/
 .vscode/
 
+# Local Git worktrees
+.worktrees/
+
 # Build artifacts
 build/
 
