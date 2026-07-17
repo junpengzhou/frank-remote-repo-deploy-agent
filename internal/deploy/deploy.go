@@ -13,6 +13,7 @@ import (
 	"frank-remote-repo-deploy-agent/internal/gitops"
 	"frank-remote-repo-deploy-agent/internal/lock"
 	"frank-remote-repo-deploy-agent/internal/maven"
+	"frank-remote-repo-deploy-agent/internal/metadata"
 	"frank-remote-repo-deploy-agent/internal/output"
 	"frank-remote-repo-deploy-agent/internal/packagex"
 	"frank-remote-repo-deploy-agent/internal/pomxml"
@@ -32,10 +33,12 @@ type Options struct {
 type Deployer struct {
 	Config *config.Config
 	// Runner handles commands with live output. Output is used for commands that need a return value.
-	Runner runner.Runner
-	Output gitops.OutputRunner
-	Cache  *cache.Store
-	Locks  *lock.Manager
+	Runner        runner.Runner
+	Output        gitops.OutputRunner
+	Cache         *cache.Store
+	Locks         *lock.Manager
+	now           func() time.Time
+	writeMetadata func(string, metadata.Document) error
 }
 
 func New(cfg *config.Config, run runner.Runner, out gitops.OutputRunner, store *cache.Store) *Deployer {
@@ -45,11 +48,13 @@ func New(cfg *config.Config, run runner.Runner, out gitops.OutputRunner, store *
 		}
 	}
 	return &Deployer{
-		Config: cfg,
-		Runner: run,
-		Output: out,
-		Cache:  store,
-		Locks:  lock.NewManager(cfg.LockDir),
+		Config:        cfg,
+		Runner:        run,
+		Output:        out,
+		Cache:         store,
+		Locks:         lock.NewManager(cfg.LockDir),
+		now:           time.Now,
+		writeMetadata: metadata.Write,
 	}
 }
 

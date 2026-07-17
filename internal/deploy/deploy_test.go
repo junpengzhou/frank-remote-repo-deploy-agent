@@ -7,6 +7,7 @@ import (
 	"frank-remote-repo-deploy-agent/internal/cache"
 	"frank-remote-repo-deploy-agent/internal/config"
 	"frank-remote-repo-deploy-agent/internal/lock"
+	"frank-remote-repo-deploy-agent/internal/metadata"
 	"frank-remote-repo-deploy-agent/internal/output"
 	"frank-remote-repo-deploy-agent/internal/runner"
 	"frank-remote-repo-deploy-agent/internal/testutil"
@@ -14,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestEnsurePomModuleOnlyPrintsPomLogInDebugMode(t *testing.T) {
@@ -196,6 +198,49 @@ func TestDeployOneBuildsMainModuleWhenOwnDependencySnapshotIsStale(t *testing.T)
 	}
 }
 
+func TestBuildMetadataOrdersMainBeforeDependenciesAndUsesEmptyCommitsOnFailure(t *testing.T) {
+	root := t.TempDir()
+	mainDir := filepath.Join(root, "example-app")
+	depDir := filepath.Join(root, "example-common")
+	run := &recordingRunner{
+		logs: map[string]string{
+			mainDir: "0123456789abcdef0123456789abcdef01234567\x00Frank Zhou\x00frank@example.com\x002026-07-17T13:20:30+08:00\x00" + strings.Repeat("界", 101) + "\n",
+		},
+		logErrors: map[string]error{
+			depDir: errors.New("history unavailable"),
+		},
+	}
+	d := New(deployTestConfig(root), run, run, nil)
+	d.now = func() time.Time {
+		return time.Date(2026, 7, 17, 14, 35, 12, 0, time.FixedZone("CST", 8*60*60))
+	}
+
+	doc := d.buildMetadata(context.Background(), Options{Env: "demo"}, "test", "example-app", buildTiming{
+		startedAt:  time.Date(2026, 7, 17, 14, 34, 1, 0, time.FixedZone("CST", 8*60*60)),
+		finishedAt: time.Date(2026, 7, 17, 14, 35, 12, 0, time.FixedZone("CST", 8*60*60)),
+	})
+
+	if len(doc.Modules) != 2 ||
+		doc.Modules[0].Name != "example-app" ||
+		doc.Modules[0].Role != metadata.RoleMain ||
+		doc.Modules[1].Name != "example-common" ||
+		doc.Modules[1].Role != metadata.RoleDependency {
+		t.Fatalf("unexpected module order: %#v", doc.Modules)
+	}
+	if doc.Modules[1].Commits == nil || len(doc.Modules[1].Commits) != 0 {
+		t.Fatalf("failed history must be [], got %#v", doc.Modules[1].Commits)
+	}
+	if got := doc.Modules[0].Commits[0].Description; got != strings.Repeat("界", 100)+"..." {
+		t.Fatalf("unexpected truncated description: %q", got)
+	}
+	if doc.Build.DurationMs != 71000 ||
+		doc.GeneratedAt != "2026-07-17T14:35:12+08:00" ||
+		doc.Environment != "demo" ||
+		doc.Branch != "test" {
+		t.Fatalf("unexpected document: %#v", doc)
+	}
+}
+
 func ensurePomModuleOutput(t *testing.T, debug bool, module string) string {
 	t.Helper()
 	output.SetDebug(debug)
@@ -257,8 +302,10 @@ func countCommands(commands []runner.Command, name string) int {
 }
 
 type recordingRunner struct {
-	commands []runner.Command
-	commits  map[string]string
+	commands  []runner.Command
+	commits   map[string]string
+	logs      map[string]string
+	logErrors map[string]error
 }
 
 func (r *recordingRunner) Run(_ context.Context, cmd runner.Command) error {
@@ -273,10 +320,14 @@ func (r *recordingRunner) Run(_ context.Context, cmd runner.Command) error {
 }
 
 func (r *recordingRunner) Output(_ context.Context, cmd runner.Command) (string, error) {
-	if len(r.commits) > 0 {
-		if commit, ok := r.commits[cmd.Dir]; ok {
-			return commit + "\n", nil
+	if len(cmd.Args) > 0 && cmd.Args[0] == "log" {
+		if err := r.logErrors[cmd.Dir]; err != nil {
+			return "", err
 		}
+		return r.logs[cmd.Dir], nil
+	}
+	if commit, ok := r.commits[cmd.Dir]; ok {
+		return commit + "\n", nil
 	}
 	return "abc123\n", nil
 }
