@@ -130,6 +130,8 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 		}
 	}
 
+	buildStartedAt := d.currentTime()
+	buildSkipped := true
 	allDependenciesCached := true
 	moduleSnapshot := make(map[string]string, len(module.Dependencies)+1)
 	for _, dep := range module.Dependencies {
@@ -149,6 +151,7 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 		}
 
 		allDependenciesCached = false
+		buildSkipped = false
 		if err := d.withMavenLock(ctx, func() error {
 			cmd := maven.BuildInstallCommand(d.Config.BuildRoot, dep, false, d.mavenOptions(opts.Env))
 			return d.Runner.Run(ctx, cmd)
@@ -181,6 +184,7 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 	if allDependenciesCached && !mainChanged && !mainSnapshotChanged {
 		output.Info("cache hit %s@%s unchanged (%s), skip install", moduleName, branch, mainCommit)
 	} else {
+		buildSkipped = false
 		if err := d.withMavenLock(ctx, func() error {
 			cmd := maven.BuildInstallCommand(d.Config.BuildRoot, moduleName, false, d.mavenOptions(opts.Env))
 			return d.Runner.Run(ctx, cmd)
@@ -196,6 +200,13 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 		}
 	}
 
+	buildFinishedAt := d.currentTime()
+	buildDocument := d.buildMetadata(ctx, opts, branch, moduleName, buildTiming{
+		startedAt:    buildStartedAt,
+		finishedAt:   buildFinishedAt,
+		buildSkipped: buildSkipped,
+	})
+
 	artifact, err := packagex.FindArtifact(d.moduleDir(moduleName), module.Packaging)
 	if err != nil {
 		return stageErr(moduleName, "find artifact", err)
@@ -206,6 +217,16 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 		return stageErr(moduleName, "prepare staging", err)
 	}
 	output.Debug("staging prepared module=%s dir=%s", moduleName, staging)
+
+	writer := d.writeMetadata
+	if writer == nil {
+		writer = metadata.Write
+	}
+	if err := writer(staging, buildDocument); err != nil {
+		output.Warning("write build metadata module=%s: %v", moduleName, err)
+	} else {
+		output.Debug("build metadata written module=%s path=%s", moduleName, filepath.Join(staging, metadata.Filename))
+	}
 
 	if err := lease.Check(); err != nil {
 		return stageErr(moduleName, "superseded", err)

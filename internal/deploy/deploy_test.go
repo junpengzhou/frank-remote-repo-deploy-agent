@@ -3,6 +3,7 @@ package deploy
 import (
 	"archive/zip"
 	"context"
+	"encoding/json"
 	"errors"
 	"frank-remote-repo-deploy-agent/internal/cache"
 	"frank-remote-repo-deploy-agent/internal/config"
@@ -241,6 +242,132 @@ func TestBuildMetadataOrdersMainBeforeDependenciesAndUsesEmptyCommitsOnFailure(t
 	}
 }
 
+func TestDeployOneWritesMetadataIntoStagingOnFullCacheHit(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "pom.xml"), []byte(`<project><modules></modules></project>`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := makeWar(filepath.Join(root, "example-app", "target", "app.war")); err != nil {
+		t.Fatal(err)
+	}
+	store, err := cache.Load(filepath.Join(root, "cache", "build-cache.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	store.Update("example-common", "test", "dep-head")
+	store.Update("example-app", "test", "main-head")
+	store.UpdateSnapshot("example-app", "test", map[string]string{
+		"example-common": "dep-head",
+		"example-app":    "main-head",
+	})
+	run := &recordingRunner{
+		commits: map[string]string{
+			filepath.Join(root, "example-common"): "dep-head",
+			filepath.Join(root, "example-app"):    "main-head",
+		},
+		logs: map[string]string{
+			filepath.Join(root, "example-app"):    "0123456789abcdef0123456789abcdef01234567\x00Frank Zhou\x00frank@example.com\x002026-07-17T13:20:30+08:00\x00Deploy metadata\n",
+			filepath.Join(root, "example-common"): "89abcdef0123456789abcdef0123456789abcdef\x00Developer\x00dev@example.com\x002026-07-16T18:10:00+08:00\x00Dependency update\n",
+		},
+	}
+	d := New(deployTestConfig(root), run, run, store)
+	d.now = clockSequence(
+		time.Date(2026, 7, 17, 14, 34, 1, 0, time.FixedZone("CST", 8*60*60)),
+		time.Date(2026, 7, 17, 14, 35, 12, 0, time.FixedZone("CST", 8*60*60)),
+		time.Date(2026, 7, 17, 14, 35, 13, 0, time.FixedZone("CST", 8*60*60)),
+	)
+
+	if err := d.deployOne(context.Background(), Options{Env: "demo"}, "example-app"); err != nil {
+		t.Fatalf("deployOne returned error: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(root, "staging", "example-app", metadata.Filename))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc metadata.Document
+	if err := json.Unmarshal(data, &doc); err != nil {
+		t.Fatal(err)
+	}
+	if !doc.Build.BuildSkipped || doc.Build.DurationMs != 71000 {
+		t.Fatalf("unexpected build metadata: %#v", doc.Build)
+	}
+	if len(doc.Modules) != 2 || len(doc.Modules[0].Commits) != 1 || len(doc.Modules[1].Commits) != 1 {
+		t.Fatalf("unexpected module metadata: %#v", doc.Modules)
+	}
+}
+
+func TestDeployOneWritesMetadataNextToJar(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "pom.xml"), []byte(`<project><modules></modules></project>`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	jarPath := filepath.Join(root, "example-app", "target", "app.jar")
+	if err := os.MkdirAll(filepath.Dir(jarPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(jarPath, []byte("jar-content"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := deployTestConfig(root)
+	main := cfg.Modules["example-app"]
+	main.Packaging = "jar"
+	main.Dependencies = nil
+	cfg.Modules["example-app"] = main
+	store, err := cache.Load(filepath.Join(root, "cache", "build-cache.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	store.Update("example-app", "test", "main-head")
+	store.UpdateSnapshot("example-app", "test", map[string]string{"example-app": "main-head"})
+	run := &recordingRunner{
+		commits: map[string]string{
+			filepath.Join(root, "example-app"): "main-head",
+		},
+		logs: map[string]string{
+			filepath.Join(root, "example-app"): "0123456789abcdef0123456789abcdef01234567\x00Frank Zhou\x00frank@example.com\x002026-07-17T13:20:30+08:00\x00Deploy JAR\n",
+		},
+	}
+	d := New(cfg, run, run, store)
+
+	if err := d.deployOne(context.Background(), Options{Env: "demo"}, "example-app"); err != nil {
+		t.Fatalf("deployOne returned error: %v", err)
+	}
+	staging := filepath.Join(root, "staging", "example-app")
+	if _, err := os.Stat(filepath.Join(staging, "app.jar")); err != nil {
+		t.Fatalf("staged JAR missing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(staging, metadata.Filename)); err != nil {
+		t.Fatalf("metadata missing next to JAR: %v", err)
+	}
+}
+
+func TestDeployOneContinuesRsyncAndRestartWhenMetadataWriteFails(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "pom.xml"), []byte(`<project><modules></modules></project>`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	run := &recordingRunner{}
+	d := New(deployTestConfig(root), run, run, nil)
+	writerCalled := false
+	d.writeMetadata = func(string, metadata.Document) error {
+		writerCalled = true
+		return errors.New("disk full")
+	}
+
+	if err := d.deployOne(context.Background(), Options{Env: "demo"}, "example-app"); err != nil {
+		t.Fatalf("deployOne returned error: %v", err)
+	}
+	if !writerCalled {
+		t.Fatal("expected metadata writer to be called")
+	}
+	if countCommands(run.commands, "rsync") != 1 || countCommands(run.commands, "ssh") != 1 {
+		t.Fatalf("metadata failure blocked deployment: %#v", run.commands)
+	}
+	if _, err := os.Stat(filepath.Join(root, "staging", "example-app", metadata.Filename)); !os.IsNotExist(err) {
+		t.Fatalf("failed metadata must remain absent, got %v", err)
+	}
+}
+
 func ensurePomModuleOutput(t *testing.T, debug bool, module string) string {
 	t.Helper()
 	output.SetDebug(debug)
@@ -341,6 +468,18 @@ func findMavenModules(commands []runner.Command) []string {
 		modules = append(modules, cmd.Args[3])
 	}
 	return modules
+}
+
+func clockSequence(values ...time.Time) func() time.Time {
+	index := 0
+	return func() time.Time {
+		if index >= len(values) {
+			return values[len(values)-1]
+		}
+		value := values[index]
+		index++
+		return value
+	}
 }
 
 type failingRunner struct {
