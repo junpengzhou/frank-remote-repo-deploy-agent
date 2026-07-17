@@ -368,6 +368,42 @@ func TestDeployOneContinuesRsyncAndRestartWhenMetadataWriteFails(t *testing.T) {
 	}
 }
 
+func TestDeployOneRemovesBundledMetadataWhenGeneratedMetadataWriteFails(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "pom.xml"), []byte(`<project><modules></modules></project>`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := makeWarWithFiles(filepath.Join(root, "example-app", "target", "app.war"), map[string]string{
+		"WEB-INF/classes/App.class": "bytecode",
+		metadata.Filename:           `{"schemaVersion":"old"}`,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	store, err := cache.Load(filepath.Join(root, "cache", "build-cache.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	store.Update("example-common", "test", "abc123")
+	store.Update("example-app", "test", "abc123")
+	store.UpdateSnapshot("example-app", "test", map[string]string{
+		"example-common": "abc123",
+		"example-app":    "abc123",
+	})
+	run := &recordingRunner{}
+	d := New(deployTestConfig(root), run, run, store)
+	d.writeMetadata = func(string, metadata.Document) error {
+		return errors.New("disk full")
+	}
+
+	if err := d.deployOne(context.Background(), Options{Env: "demo"}, "example-app"); err != nil {
+		t.Fatalf("deployOne returned error: %v", err)
+	}
+	path := filepath.Join(root, "staging", "example-app", metadata.Filename)
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("bundled metadata must be absent after generated metadata failure, got %v", err)
+	}
+}
+
 func ensurePomModuleOutput(t *testing.T, debug bool, module string) string {
 	t.Helper()
 	output.SetDebug(debug)
@@ -496,6 +532,12 @@ func (r *failingRunner) Run(_ context.Context, _ runner.Command) error {
 }
 
 func makeWar(path string) error {
+	return makeWarWithFiles(path, map[string]string{
+		"WEB-INF/classes/App.class": "bytecode",
+	})
+}
+
+func makeWarWithFiles(path string, files map[string]string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
@@ -504,14 +546,16 @@ func makeWar(path string) error {
 		return err
 	}
 	writer := zip.NewWriter(out)
-	file, err := writer.Create("WEB-INF/classes/App.class")
-	if err != nil {
-		_ = out.Close()
-		return err
-	}
-	if _, err := file.Write([]byte("bytecode")); err != nil {
-		_ = out.Close()
-		return err
+	for name, content := range files {
+		file, err := writer.Create(name)
+		if err != nil {
+			_ = out.Close()
+			return err
+		}
+		if _, err := file.Write([]byte(content)); err != nil {
+			_ = out.Close()
+			return err
+		}
 	}
 	if err := writer.Close(); err != nil {
 		_ = out.Close()

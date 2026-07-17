@@ -218,14 +218,21 @@ func (d *Deployer) deployOne(ctx context.Context, opts Options, moduleName strin
 	}
 	output.Debug("staging prepared module=%s dir=%s", moduleName, staging)
 
+	metadataPath := filepath.Join(staging, metadata.Filename)
+	if err := os.Remove(metadataPath); err != nil && !os.IsNotExist(err) {
+		output.Warning("remove existing build metadata module=%s: %v", moduleName, err)
+	}
 	writer := d.writeMetadata
 	if writer == nil {
 		writer = metadata.Write
 	}
 	if err := writer(staging, buildDocument); err != nil {
 		output.Warning("write build metadata module=%s: %v", moduleName, err)
+		if removeErr := os.Remove(metadataPath); removeErr != nil && !os.IsNotExist(removeErr) {
+			output.Warning("remove failed build metadata module=%s: %v", moduleName, removeErr)
+		}
 	} else {
-		output.Debug("build metadata written module=%s path=%s", moduleName, filepath.Join(staging, metadata.Filename))
+		output.Debug("build metadata written module=%s path=%s", moduleName, metadataPath)
 	}
 
 	if err := lease.Check(); err != nil {
