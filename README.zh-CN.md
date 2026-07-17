@@ -107,6 +107,7 @@ rsync:
 ## 行为
 
 - 构建缓存：在配置的 JSON 缓存文件中保存 `{module, branch, commit}`。未变化的依赖模块会跳过 `mvn install`；只有所有依赖模块和主模块都命中缓存时，主模块才会跳过 `mvn install`。
+- 构建元数据：每次 staging 都会包含 [`salt-agent-metadata.json`](docs/salt-agent-metadata.md)，记录构建时间以及主模块和各依赖模块最近最多三条提交。
 - 调试输出：普通部署默认不输出详细命令和 POM 维护日志。使用 `--debug` 输出 `[cmd]`、`[pom]` 和缓存跳过等细节。`--dry-run` 仍会输出命令，因为它是命令预览模式。
 - Maven 安全性：所有 Maven install 步骤都会使用跨进程目录锁，避免并发写入同一个本地仓库。
 - 同模块抢占：同一个模块启动新的部署时，会抢占旧的部署任务。旧任务会在下一个阶段边界退出。
