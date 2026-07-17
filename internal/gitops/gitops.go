@@ -3,8 +3,10 @@ package gitops
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"frank-remote-repo-deploy-agent/internal/output"
@@ -76,6 +78,14 @@ type OutputRunner interface {
 	Output(ctx context.Context, cmd runner.Command) (string, error)
 }
 
+type Commit struct {
+	Hash           string
+	CommitterName  string
+	CommitterEmail string
+	CommittedAt    string
+	Description    string
+}
+
 func HeadCommit(ctx context.Context, out OutputRunner, dir string) (string, error) {
 	if out == nil {
 		return "", errors.New("output runner is required")
@@ -85,4 +95,45 @@ func HeadCommit(ctx context.Context, out OutputRunner, dir string) (string, erro
 		return "", err
 	}
 	return strings.TrimSpace(value), nil
+}
+
+func RecentCommits(ctx context.Context, out OutputRunner, dir string, limit int) ([]Commit, error) {
+	if out == nil {
+		return nil, errors.New("output runner is required")
+	}
+	if limit <= 0 {
+		return []Commit{}, nil
+	}
+	value, err := out.Output(ctx, runner.Command{
+		Name: "git",
+		Args: []string{"log", "-n", strconv.Itoa(limit), "--format=%H%x00%cn%x00%ce%x00%cI%x00%s"},
+		Dir:  dir,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return parseCommitLog(value)
+}
+
+func parseCommitLog(value string) ([]Commit, error) {
+	value = strings.TrimRight(value, "\r\n")
+	if value == "" {
+		return []Commit{}, nil
+	}
+	lines := strings.Split(value, "\n")
+	commits := make([]Commit, 0, len(lines))
+	for index, line := range lines {
+		fields := strings.Split(strings.TrimSuffix(line, "\r"), "\x00")
+		if len(fields) != 5 {
+			return nil, fmt.Errorf("parse git log record %d: expected 5 fields, got %d", index+1, len(fields))
+		}
+		commits = append(commits, Commit{
+			Hash:           fields[0],
+			CommitterName:  fields[1],
+			CommitterEmail: fields[2],
+			CommittedAt:    fields[3],
+			Description:    fields[4],
+		})
+	}
+	return commits, nil
 }
