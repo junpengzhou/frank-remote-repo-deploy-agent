@@ -72,8 +72,8 @@ func TestCheckoutPrintsPostCheckoutEvidenceInDebugMode(t *testing.T) {
 
 func TestRecentCommitsQueriesAndParsesNewestRecords(t *testing.T) {
 	run := &recordingRunner{outputs: []string{
-		"0123456789abcdef0123456789abcdef01234567\x00Frank Zhou\x00frank@example.com\x002026-07-17T13:20:30+08:00\x00发布元数据\n" +
-			"89abcdef0123456789abcdef0123456789abcdef\x00Developer\x00dev@example.com\x002026-07-16T18:10:00+08:00\x00Update dependency\n",
+		"0123456789abcdef0123456789abcdef01234567\x00Frank Zhou\x00frank@example.com\x002026-07-17 13:20:30 +0800\x00发布元数据\n" +
+			"89abcdef0123456789abcdef0123456789abcdef\x00Developer\x00dev@example.com\x002026-07-16 18:10:00 +0800\x00Update dependency\n",
 	}}
 
 	commits, err := RecentCommits(context.Background(), run, "/workspace/example", 3)
@@ -83,8 +83,14 @@ func TestRecentCommitsQueriesAndParsesNewestRecords(t *testing.T) {
 
 	want := runner.Command{
 		Name: "git",
-		Args: []string{"log", "-n", "3", "--format=%H%x00%cn%x00%ce%x00%cI%x00%s"},
-		Dir:  "/workspace/example",
+		Args: []string{
+			"log",
+			"-n",
+			"3",
+			"--format=%H%x00%cn%x00%ce%x00%ci%x00%s",
+			"--no-merges",
+		},
+		Dir: "/workspace/example",
 	}
 	if !commandsEqual(run.commands, []runner.Command{want}) {
 		t.Fatalf("unexpected commands: %#v", run.commands)
@@ -101,6 +107,17 @@ func TestRecentCommitsQueriesAndParsesNewestRecords(t *testing.T) {
 	}
 	if commits[1].Hash != "89abcdef0123456789abcdef0123456789abcdef" {
 		t.Fatalf("unexpected second commit: %#v", commits[1])
+	}
+}
+
+func TestRecentCommitsRejectsInvalidCommitTime(t *testing.T) {
+	run := &recordingRunner{outputs: []string{
+		"0123456789abcdef0123456789abcdef01234567\x00Frank Zhou\x00frank@example.com\x00%cI\x00发布元数据\n",
+	}}
+
+	_, err := RecentCommits(context.Background(), run, "/workspace/example", 3)
+	if err == nil || !strings.Contains(err.Error(), "commit time") {
+		t.Fatalf("expected commit time parse error, got %v", err)
 	}
 }
 

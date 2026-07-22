@@ -8,10 +8,13 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"frank-remote-repo-deploy-agent/internal/output"
 	"frank-remote-repo-deploy-agent/internal/runner"
 )
+
+const gitCommitTimeLayout = "2006-01-02 15:04:05 -0700"
 
 type Client struct {
 	Runner runner.Runner
@@ -106,8 +109,14 @@ func RecentCommits(ctx context.Context, out OutputRunner, dir string, limit int)
 	}
 	value, err := out.Output(ctx, runner.Command{
 		Name: "git",
-		Args: []string{"log", "-n", strconv.Itoa(limit), "--format=%H%x00%cn%x00%ce%x00%cI%x00%s"},
-		Dir:  dir,
+		Args: []string{
+			"log",
+			"-n",
+			strconv.Itoa(limit),
+			"--format=%H%x00%cn%x00%ce%x00%ci%x00%s",
+			"--no-merges",
+		},
+		Dir: dir,
 	})
 	if err != nil {
 		return nil, err
@@ -127,11 +136,15 @@ func parseCommitLog(value string) ([]Commit, error) {
 		if len(fields) != 5 {
 			return nil, fmt.Errorf("parse git log record %d: expected 5 fields, got %d", index+1, len(fields))
 		}
+		committedAt, err := time.Parse(gitCommitTimeLayout, fields[3])
+		if err != nil {
+			return nil, fmt.Errorf("parse git log record %d commit time %q: %w", index+1, fields[3], err)
+		}
 		commits = append(commits, Commit{
 			Hash:           fields[0],
 			CommitterName:  fields[1],
 			CommitterEmail: fields[2],
-			CommittedAt:    fields[3],
+			CommittedAt:    committedAt.Format(time.RFC3339),
 			Description:    fields[4],
 		})
 	}
