@@ -122,7 +122,7 @@
 | --- | --- | --- | --- |
 | `name` | string | 是 | 配置中的模块名称。 |
 | `role` | string | 是 | 主模块为 `main`，依赖模块为 `dependency`。 |
-| `commits` | array | 是 | 从该模块本地 `HEAD` 开始的最近零至三条提交。 |
+| `commits` | array | 是 | 从该模块本地 `HEAD` 开始的最近零至三条非 merge 提交。 |
 
 模块顺序固定：
 
@@ -139,7 +139,7 @@
 | `committedAt` | RFC 3339 string | 是 | Git committer 时间，保留提交记录中的时区偏移。 |
 | `description` | string | 是 | Git 提交标题，即 subject 第一行，不包含提交正文。 |
 
-提交按从新到旧排列。仓库只有一条或两条提交时，数组只包含实际存在的记录，不会补齐到三条。
+提交已过滤 merge commit，并按从新到旧排列。仓库只有一条或两条非 merge 提交时，数组只包含实际存在的记录，不会补齐到三条。
 
 ## 5. 描述截断规则
 
@@ -202,11 +202,13 @@
 
 1. checkout 主模块及依赖模块。
 2. 执行现有 Maven 缓存判断和必要构建。
-3. Maven 阶段成功后读取每个模块最近最多三条本地提交。
+3. Maven 阶段成功后读取每个模块最近最多三条本地非 merge 提交。
 4. 准备 WAR/JAR staging。
 5. 在 staging 根目录写入元数据。
 6. 通过现有 `rsync --delete` 同步应用和元数据。
 7. 执行远程脚本或容器重启。
+
+提交查询使用 Git 1.8.3.1 已验证支持的 `%ci` 和 `--no-merges`；`%ci` 时间由 `salt-agent` 转换为 RFC 3339 后再写入 JSON。
 
 降级规则：
 

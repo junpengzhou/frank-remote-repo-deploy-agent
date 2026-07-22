@@ -108,7 +108,7 @@ rsync:
 ## Behavior
 
 - Build cache: stores `{module, branch, commit}` in the configured JSON cache. Unchanged dependencies skip `mvn install`; the main module skips `mvn install` only when every dependency and the main module are cache hits.
-- Build metadata: each staged deployment includes [`salt-agent-metadata.json`](docs/salt-agent-metadata.md) with build timing and up to three recent commits for the main module and every configured dependency.
+- Build metadata: each staged deployment includes [`salt-agent-metadata.json`](docs/salt-agent-metadata.md) with build timing and up to three recent non-merge commits for the main module and every configured dependency.
 - Debug output: normal deploys keep verbose command and POM maintenance logs quiet. Use `--debug` to print `[cmd]`, `[pom]`, and cache skip details. `--dry-run` still prints commands because it is a command preview mode.
 - Maven safety: all Maven install steps use a cross-process directory lock to avoid concurrent writes to the same local repository.
 - Same-module preemption: starting a new deployment for the same module supersedes the older run. The older run exits at the next stage boundary.
