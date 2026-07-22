@@ -205,7 +205,7 @@ func TestBuildMetadataOrdersMainBeforeDependenciesAndUsesEmptyCommitsOnFailure(t
 	depDir := filepath.Join(root, "example-common")
 	run := &recordingRunner{
 		logs: map[string]string{
-			mainDir: "0123456789abcdef0123456789abcdef01234567\x00Frank Zhou\x00frank@example.com\x002026-07-17T13:20:30+08:00\x00" + strings.Repeat("界", 101) + "\n",
+			mainDir: "0123456789abcdef0123456789abcdef01234567\x00Frank Zhou\x00frank@example.com\x002026-07-17 13:20:30 +0800\x00" + strings.Repeat("界", 101) + "\n",
 		},
 		logErrors: map[string]error{
 			depDir: errors.New("history unavailable"),
@@ -266,8 +266,8 @@ func TestDeployOneWritesMetadataIntoStagingOnFullCacheHit(t *testing.T) {
 			filepath.Join(root, "example-app"):    "main-head",
 		},
 		logs: map[string]string{
-			filepath.Join(root, "example-app"):    "0123456789abcdef0123456789abcdef01234567\x00Frank Zhou\x00frank@example.com\x002026-07-17T13:20:30+08:00\x00Deploy metadata\n",
-			filepath.Join(root, "example-common"): "89abcdef0123456789abcdef0123456789abcdef\x00Developer\x00dev@example.com\x002026-07-16T18:10:00+08:00\x00Dependency update\n",
+			filepath.Join(root, "example-app"):    "0123456789abcdef0123456789abcdef01234567\x00Frank Zhou\x00frank@example.com\x002026-07-17 13:20:30 +0800\x00Deploy metadata\n",
+			filepath.Join(root, "example-common"): "89abcdef0123456789abcdef0123456789abcdef\x00Developer\x00dev@example.com\x002026-07-16 18:10:00 +0800\x00Dependency update\n",
 		},
 	}
 	d := New(deployTestConfig(root), run, run, store)
@@ -324,7 +324,7 @@ func TestDeployOneWritesMetadataNextToJar(t *testing.T) {
 			filepath.Join(root, "example-app"): "main-head",
 		},
 		logs: map[string]string{
-			filepath.Join(root, "example-app"): "0123456789abcdef0123456789abcdef01234567\x00Frank Zhou\x00frank@example.com\x002026-07-17T13:20:30+08:00\x00Deploy JAR\n",
+			filepath.Join(root, "example-app"): "0123456789abcdef0123456789abcdef01234567\x00Frank Zhou\x00frank@example.com\x002026-07-17 13:20:30 +0800\x00Deploy JAR\n",
 		},
 	}
 	d := New(cfg, run, run, store)
